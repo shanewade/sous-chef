@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+
+{% block title %}{{ recipe.title }} — Meal Planner{% endblock %}
+
+{% block content %}
+<div class="detail-header">
+    <div>
+        <a class="back-link" href="/recipes">&larr; All Recipes</a>
+        <h1 class="page-title" style="margin-top: 0.5rem">{{ recipe.title }}</h1>
+    </div>
+</div>
+
+<div class="detail-meta">
+    {% if recipe.cook_time_minutes %}
+    <span class="meta-chip">{{ recipe.cook_time_minutes }} min</span>
+    {% endif %}
+    {% if recipe.servings %}
+    <span class="meta-chip">{{ recipe.servings }} serving{{ 's' if recipe.servings != 1 }}</span>
+    {% endif %}
+</div>
+
+{% if recipe.description %}
+<p class="detail-description">{{ recipe.description }}</p>
+{% endif %}
+
+<div class="detail-body">
+    {% if recipe.ingredients_text %}
+    <section class="detail-section">
+        <h2>Ingredients</h2>
+        <ul class="ingredient-list">
+            {% for line in recipe.ingredients_text.splitlines() %}
+            {% if line.strip() %}
+            <li>{{ line.strip() }}</li>
+            {% endif %}
+            {% endfor %}
+        </ul>
+    </section>
+    {% endif %}
+
+    {% if recipe.steps %}
+    <section class="detail-section">
+        <h2>Steps</h2>
+        <ol class="step-list">
+            {% for line in recipe.steps.splitlines() %}
+            {% if line.strip() %}
+            <li>{{ line.strip() }}</li>
+            {% endif %}
+            {% endfor %}
+        </ol>
+    </section>
+    {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+
+{% block title %}New Recipe — Meal Planner{% endblock %}
+
+{% block content %}
+<a class="back-link" href="/recipes">&larr; All Recipes</a>
+<h1 class="page-title" style="margin-top: 0.5rem">New Recipe</h1>
+
+<form class="recipe-form" id="recipe-form">
+    <div class="form-group">
+        <label for="title">Title <span class="required">*</span></label>
+        <input type="text" id="title" name="title" required>
+    </div>
+
+    <div class="form-group">
+        <label for="description">Description</label>
+        <input type="text" id="description" name="description">
+    </div>
+
+    <div class="form-row">
+        <div class="form-group">
+            <label for="cook_time_minutes">Cook Time (minutes)</label>
+            <input type="number" id="cook_time_minutes" name="cook_time_minutes" min="1">
+        </div>
+        <div class="form-group">
+            <label for="servings">Servings</label>
+            <input type="number" id="servings" name="servings" min="1">
+        </div>
+    </div>
+
+    <div class="form-group">
+        <label for="ingredients_text">Ingredients</label>
+        <p class="field-hint">One ingredient per line</p>
+        <textarea id="ingredients_text" name="ingredients_text" rows="6"></textarea>
+    </div>
+
+    <div class="form-group">
+        <label for="steps">Steps</label>
+        <p class="field-hint">One step per line</p>
+        <textarea id="steps" name="steps" rows="8"></textarea>
+    </div>
+
+    <div class="form-actions">
+        <p class="form-error" id="form-error" hidden></p>
+        <a class="btn btn-secondary" href="/recipes">Cancel</a>
+        <button class="btn" type="submit">Save Recipe</button>
+    </div>
+</form>
+
+<script>
+document.getElementById("recipe-form").addEventListener("submit", async function (e) {
+    e.preventDefault();
+    const form = e.target;
+    const errorEl = document.getElementById("form-error");
+    errorEl.hidden = true;
+
+    const data = {
+        title: form.title.value.trim(),
+        description: form.description.value.trim() || null,
+        cook_time_minutes: form.cook_time_minutes.value ? parseInt(form.cook_time_minutes.value) : null,
+        servings: form.servings.value ? parseInt(form.servings.value) : null,
+        ingredients_text: form.ingredients_text.value.trim() || null,
+        steps: form.steps.value.trim() || null,
+    };
+
+    const res = await fetch("/api/recipes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+    });
+
+    if (res.ok) {
+        const recipe = await res.json();
+        window.location.href = "/recipes/" + recipe.id;
+    } else {
+        const body = await res.json().catch(() => ({}));
+        errorEl.textContent = body.error || "Something went wrong. Please try again.";
+        errorEl.hidden = false;
+    }
+});
+</script>
+{% endblock %}

@@ -35,6 +35,8 @@ def create_recipe():
     recipe = Recipe(
         title=data["title"],
         description=data.get("description"),
+        ingredients_text=data.get("ingredients_text"),
+        steps=data.get("steps"),
         cook_time_minutes=data.get("cook_time_minutes"),
         servings=data.get("servings"),
     )
