@@ -1,16 +1,17 @@
-import click
 from flask import Flask
-from flask_sqlalchemy import SQLAlchemy
-from flask_migrate import Migrate
+from extensions import db, migrate
 
 app = Flask(__name__)
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///recipe_app.db"
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
-db = SQLAlchemy(app)
-migrate = Migrate(app, db)
+db.init_app(app)
+migrate.init_app(app, db)
 
-import models  # noqa: E402 — must come after db is defined
+import models  # noqa: E402 — must come after db is initialized
+
+from routes.api import api  # noqa: E402
+app.register_blueprint(api, url_prefix="/api")
 
 @app.route("/")
 def index():

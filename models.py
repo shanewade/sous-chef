@@ -1,5 +1,5 @@
 from datetime import datetime
-from app import db
+from extensions import db
 
 recipe_ingredients = db.Table(
     "recipe_ingredients",
