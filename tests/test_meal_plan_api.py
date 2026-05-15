@@ -9,8 +9,8 @@ def create_plan(client, name="Week 1", week_start_date="2026-05-19"):
     return post_json(client, "/api/meal-plans", {"name": name, "week_start_date": week_start_date})
 
 
-def create_recipe(client, title="Test Recipe"):
-    return post_json(client, "/api/recipes", {"title": title})
+def create_recipe(client, title="Test Recipe", **kwargs):
+    return post_json(client, "/api/recipes", {"title": title, **kwargs})
 
 
 class TestCreateMealPlan:
@@ -100,3 +100,43 @@ class TestDeleteEntry:
         plan_id = create_plan(client).get_json()["id"]
         res = client.delete(f"/api/meal-plans/{plan_id}/entries/999")
         assert res.status_code == 404
+
+
+class TestShoppingListAPI:
+    def test_returns_404_for_missing_plan(self, client):
+        res = client.get("/api/meal-plans/999/shopping-list")
+        assert res.status_code == 404
+
+    def test_returns_empty_list_when_no_ingredients(self, client):
+        plan_id = create_plan(client).get_json()["id"]
+        recipe_id = create_recipe(client).get_json()["id"]
+        post_json(client, f"/api/meal-plans/{plan_id}/entries", {
+            "recipe_id": recipe_id, "day_of_week": "Monday", "meal_type": "dinner",
+        })
+        res = client.get(f"/api/meal-plans/{plan_id}/shopping-list")
+        assert res.status_code == 200
+        assert res.get_json() == []
+
+    def test_returns_aggregated_ingredients(self, client):
+        plan_id = create_plan(client).get_json()["id"]
+        recipe_id = create_recipe(
+            client, ingredients_text="2 cups flour\n1 tsp salt"
+        ).get_json()["id"]
+        post_json(client, f"/api/meal-plans/{plan_id}/entries", {
+            "recipe_id": recipe_id, "day_of_week": "Monday", "meal_type": "dinner",
+        })
+        items = client.get(f"/api/meal-plans/{plan_id}/shopping-list").get_json()
+        names = [i["ingredient"] for i in items]
+        assert "flour" in names
+        assert "salt" in names
+
+    def test_sums_quantities_across_recipes(self, client):
+        plan_id = create_plan(client).get_json()["id"]
+        for ingredients in ["2 cups flour", "1 cup flour"]:
+            recipe_id = create_recipe(client, ingredients_text=ingredients).get_json()["id"]
+            post_json(client, f"/api/meal-plans/{plan_id}/entries", {
+                "recipe_id": recipe_id, "day_of_week": "Monday", "meal_type": "dinner",
+            })
+        items = client.get(f"/api/meal-plans/{plan_id}/shopping-list").get_json()
+        flour = next(i for i in items if i["ingredient"] == "flour")
+        assert flour["quantity"] == "3"

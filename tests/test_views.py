@@ -1,9 +1,19 @@
 import json
+from datetime import date, timedelta
 
 
 def create_recipe(client, **kwargs):
     data = {"title": "Test Recipe", **kwargs}
     return client.post("/api/recipes", data=json.dumps(data), content_type="application/json")
+
+
+def post_json(client, url, data):
+    return client.post(url, data=json.dumps(data), content_type="application/json")
+
+
+def current_monday():
+    today = date.today()
+    return (today - timedelta(days=today.weekday())).isoformat()
 
 
 class TestRecipesIndex:
@@ -73,3 +83,74 @@ class TestRecipesDetail:
         res = client.get(f"/recipes/{recipe_id}")
         assert b"Mix ingredients" in res.data
         assert b"Bake at 350" in res.data
+
+
+class TestMealPlanView:
+    def test_returns_200(self, client):
+        res = client.get("/meal-plan")
+        assert res.status_code == 200
+
+    def test_creates_plan_for_current_week_when_none_exists(self, client):
+        res = client.get("/meal-plan")
+        assert b"Meal Plan" in res.data
+
+    def test_uses_existing_plan_when_present(self, client):
+        post_json(client, "/api/meal-plans", {
+            "name": "My Week",
+            "week_start_date": current_monday(),
+        })
+        res = client.get("/meal-plan")
+        assert res.status_code == 200
+
+    def test_shows_day_headers(self, client):
+        res = client.get("/meal-plan")
+        for day in [b"Mon", b"Tue", b"Wed", b"Thu", b"Fri", b"Sat", b"Sun"]:
+            assert day in res.data
+
+    def test_shows_meal_rows(self, client):
+        res = client.get("/meal-plan")
+        for meal in [b"Breakfast", b"Lunch", b"Dinner"]:
+            assert meal in res.data
+
+
+class TestShoppingListView:
+    def test_returns_200_with_no_plan(self, client):
+        res = client.get("/shopping-list")
+        assert res.status_code == 200
+
+    def test_shows_empty_state_when_no_plan(self, client):
+        res = client.get("/shopping-list")
+        assert b"No meal plan" in res.data
+
+    def test_shows_ingredients_from_plan_recipes(self, client):
+        recipe_id = create_recipe(
+            client,
+            title="Pasta",
+            ingredients_text="2 cups flour\n1 tsp salt",
+        ).get_json()["id"]
+        plan_id = post_json(client, "/api/meal-plans", {
+            "week_start_date": current_monday(),
+        }).get_json()["id"]
+        post_json(client, f"/api/meal-plans/{plan_id}/entries", {
+            "recipe_id": recipe_id,
+            "day_of_week": "Monday",
+            "meal_type": "dinner",
+        })
+        res = client.get("/shopping-list")
+        assert res.status_code == 200
+        assert b"flour" in res.data
+        assert b"salt" in res.data
+
+    def test_shows_empty_state_when_plan_has_no_ingredients(self, client):
+        recipe_id = create_recipe(client).get_json()["id"]
+        plan_id = post_json(client, "/api/meal-plans", {
+            "week_start_date": current_monday(),
+        }).get_json()["id"]
+        post_json(client, f"/api/meal-plans/{plan_id}/entries", {
+            "recipe_id": recipe_id,
+            "day_of_week": "Monday",
+            "meal_type": "dinner",
+        })
+        res = client.get("/shopping-list")
+        assert res.status_code == 200
+        assert b"no recipes with ingredients" in res.data
