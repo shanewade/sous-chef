@@ -12,7 +12,9 @@ import models  # noqa: E402 — must come after db is initialized
 
 from routes.api import api  # noqa: E402
 from routes.views import views  # noqa: E402
+from routes.meal_plan_api import meal_plan_bp  # noqa: E402
 app.register_blueprint(api, url_prefix="/api")
+app.register_blueprint(meal_plan_bp, url_prefix="/api")
 app.register_blueprint(views)
 
 @app.route("/")

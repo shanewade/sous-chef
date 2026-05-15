@@ -1,4 +1,5 @@
 from flask import Blueprint, render_template, abort
+from extensions import db
 from models import Recipe
 
 views = Blueprint("views", __name__)
@@ -17,5 +18,7 @@ def recipes_new():
 
 @views.route("/recipes/<int:id>")
 def recipes_detail(id):
-    recipe = Recipe.query.get_or_404(id)
+    recipe = db.session.get(Recipe, id)
+    if recipe is None:
+        abort(404)
     return render_template("recipes/detail.html", recipe=recipe)

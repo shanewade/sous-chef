@@ -1,0 +1,102 @@
+import json
+
+
+def post_json(client, url, data):
+    return client.post(url, data=json.dumps(data), content_type="application/json")
+
+
+def create_plan(client, name="Week 1", week_start_date="2026-05-19"):
+    return post_json(client, "/api/meal-plans", {"name": name, "week_start_date": week_start_date})
+
+
+def create_recipe(client, title="Test Recipe"):
+    return post_json(client, "/api/recipes", {"title": title})
+
+
+class TestCreateMealPlan:
+    def test_creates_plan_and_returns_201(self, client):
+        res = create_plan(client)
+        assert res.status_code == 201
+        body = res.get_json()
+        assert body["name"] == "Week 1"
+        assert body["week_start_date"] == "2026-05-19"
+        assert "id" in body
+
+
+class TestGetMealPlan:
+    def test_returns_plan_with_entries(self, client):
+        plan_id = create_plan(client).get_json()["id"]
+        recipe_id = create_recipe(client).get_json()["id"]
+        post_json(client, f"/api/meal-plans/{plan_id}/entries", {
+            "recipe_id": recipe_id,
+            "day_of_week": "Monday",
+            "meal_type": "dinner",
+        })
+
+        res = client.get(f"/api/meal-plans/{plan_id}")
+        assert res.status_code == 200
+        body = res.get_json()
+        assert body["id"] == plan_id
+        assert len(body["entries"]) == 1
+        entry = body["entries"][0]
+        assert entry["recipe_id"] == recipe_id
+        assert entry["recipe_title"] == "Test Recipe"
+        assert entry["day_of_week"] == "Monday"
+        assert entry["meal_type"] == "dinner"
+
+    def test_returns_404_for_missing_plan(self, client):
+        res = client.get("/api/meal-plans/999")
+        assert res.status_code == 404
+
+
+class TestAddEntry:
+    def test_adds_entry_and_returns_201(self, client):
+        plan_id = create_plan(client).get_json()["id"]
+        recipe_id = create_recipe(client).get_json()["id"]
+
+        res = post_json(client, f"/api/meal-plans/{plan_id}/entries", {
+            "recipe_id": recipe_id,
+            "day_of_week": "Tuesday",
+            "meal_type": "lunch",
+        })
+        assert res.status_code == 201
+        body = res.get_json()
+        assert body["recipe_id"] == recipe_id
+        assert body["day_of_week"] == "Tuesday"
+        assert body["meal_type"] == "lunch"
+
+    def test_returns_400_when_recipe_id_missing(self, client):
+        plan_id = create_plan(client).get_json()["id"]
+        res = post_json(client, f"/api/meal-plans/{plan_id}/entries", {})
+        assert res.status_code == 400
+
+    def test_returns_404_for_missing_plan(self, client):
+        res = post_json(client, "/api/meal-plans/999/entries", {"recipe_id": 1})
+        assert res.status_code == 404
+
+    def test_returns_404_for_missing_recipe(self, client):
+        plan_id = create_plan(client).get_json()["id"]
+        res = post_json(client, f"/api/meal-plans/{plan_id}/entries", {"recipe_id": 999})
+        assert res.status_code == 404
+
+
+class TestDeleteEntry:
+    def test_deletes_entry_and_returns_204(self, client):
+        plan_id = create_plan(client).get_json()["id"]
+        recipe_id = create_recipe(client).get_json()["id"]
+        entry_id = post_json(client, f"/api/meal-plans/{plan_id}/entries", {
+            "recipe_id": recipe_id,
+            "day_of_week": "Wednesday",
+            "meal_type": "breakfast",
+        }).get_json()["id"]
+
+        res = client.delete(f"/api/meal-plans/{plan_id}/entries/{entry_id}")
+        assert res.status_code == 204
+
+        body = client.get(f"/api/meal-plans/{plan_id}").get_json()
+        assert body["entries"] == []
+
+    def test_returns_404_for_missing_entry(self, client):
+        plan_id = create_plan(client).get_json()["id"]
+        res = client.delete(f"/api/meal-plans/{plan_id}/entries/999")
+        assert res.status_code == 404
