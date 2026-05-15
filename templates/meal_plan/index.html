@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+
+{% block title %}Meal Plan — Meal Planner{% endblock %}
+
+{% block content %}
+{% set days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'] %}
+{% set meals = ['breakfast', 'lunch', 'dinner'] %}
+
+<div class="page-header">
+    <h1 class="page-title">
+        Meal Plan
+        <span class="week-label">Week of {{ plan.week_start_date.strftime('%b %-d') }}</span>
+    </h1>
+</div>
+
+<div class="meal-grid">
+    <div class="grid-corner"></div>
+    {% for day in days %}
+    <div class="grid-day-header">{{ day[:3] }}</div>
+    {% endfor %}
+
+    {% for meal in meals %}
+    <div class="grid-meal-label">{{ meal|capitalize }}</div>
+    {% for day in days %}
+    {% set entry = slots.get((day, meal)) %}
+    <div class="grid-cell"
+         data-day="{{ day }}"
+         data-meal="{{ meal }}"
+         {% if entry %}data-entry-id="{{ entry.id }}"{% endif %}>
+        {% if entry %}
+        <span class="cell-recipe">{{ entry.recipe.title }}</span>
+        <button class="cell-remove" aria-label="Remove">×</button>
+        {% else %}
+        <button class="cell-add">+ Add</button>
+        {% endif %}
+    </div>
+    {% endfor %}
+    {% endfor %}
+</div>
+
+<script>
+const PLAN_ID = {{ plan.id }};
+let recipesCache = null;
+
+function esc(str) {
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+async function fetchRecipes() {
+    if (!recipesCache) {
+        const res = await fetch('/api/recipes');
+        recipesCache = await res.json();
+    }
+    return recipesCache;
+}
+
+function renderFilled(cell, entryId, recipeTitle) {
+    cell.dataset.entryId = entryId;
+    cell.innerHTML =
+        `<span class="cell-recipe">${esc(recipeTitle)}</span>` +
+        `<button class="cell-remove" aria-label="Remove">×</button>`;
+}
+
+function renderEmpty(cell) {
+    delete cell.dataset.entryId;
+    cell.innerHTML = '<button class="cell-add">+ Add</button>';
+}
+
+async function showSelect(cell) {
+    const recipes = await fetchRecipes();
+
+    const select = document.createElement('select');
+    select.className = 'cell-select';
+    select.innerHTML =
+        '<option value="">Pick a recipe…</option>' +
+        recipes.map(r => `<option value="${r.id}">${esc(r.title)}</option>`).join('');
+
+    const cancel = document.createElement('button');
+    cancel.className = 'cell-cancel';
+    cancel.textContent = 'Cancel';
+    cancel.addEventListener('click', () => renderEmpty(cell));
+
+    cell.innerHTML = '';
+    cell.appendChild(select);
+    cell.appendChild(cancel);
+    select.focus();
+
+    select.addEventListener('change', async () => {
+        if (!select.value) return;
+        const res = await fetch(`/api/meal-plans/${PLAN_ID}/entries`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                recipe_id: parseInt(select.value),
+                day_of_week: cell.dataset.day,
+                meal_type: cell.dataset.meal,
+            }),
+        });
+        if (res.ok) {
+            const entry = await res.json();
+            renderFilled(cell, entry.id, entry.recipe_title);
+        } else {
+            renderEmpty(cell);
+        }
+    });
+}
+
+async function removeEntry(cell) {
+    const res = await fetch(`/api/meal-plans/${PLAN_ID}/entries/${cell.dataset.entryId}`, {
+        method: 'DELETE',
+    });
+    if (res.ok) renderEmpty(cell);
+}
+
+document.querySelector('.meal-grid').addEventListener('click', e => {
+    const addBtn = e.target.closest('.cell-add');
+    const removeBtn = e.target.closest('.cell-remove');
+    if (addBtn) showSelect(addBtn.closest('.grid-cell'));
+    else if (removeBtn) removeEntry(removeBtn.closest('.grid-cell'));
+});
+</script>
+{% endblock %}

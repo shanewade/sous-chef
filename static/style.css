@@ -292,3 +292,147 @@ body {
 .btn-secondary:hover {
     background: #e2e6ea;
 }
+
+/* Meal plan page */
+.week-label {
+    font-size: 1rem;
+    font-weight: 400;
+    color: #888;
+    margin-left: 0.6rem;
+}
+
+.meal-grid {
+    display: grid;
+    grid-template-columns: 90px repeat(7, 1fr);
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.grid-corner,
+.grid-day-header,
+.grid-meal-label,
+.grid-cell {
+    border-right: 1px solid #e0e0e0;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.grid-corner,
+.grid-day-header,
+.grid-meal-label,
+.grid-cell:last-child,
+.grid-day-header:last-child {
+    border-right: none;
+}
+
+/* Remove bottom border on last row */
+.meal-grid > :nth-last-child(-n+8) {
+    border-bottom: none;
+}
+
+.grid-corner {
+    background: #f8f9fa;
+}
+
+.grid-day-header {
+    background: #f8f9fa;
+    text-align: center;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #555;
+    padding: 0.55rem 0;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.grid-meal-label {
+    background: #f8f9fa;
+    display: flex;
+    align-items: center;
+    padding: 0 0.75rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #555;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.grid-cell {
+    min-height: 72px;
+    padding: 0.5rem;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.35rem;
+    background: #fff;
+    position: relative;
+}
+
+.grid-cell:has(.cell-recipe) {
+    background: #f0f4ff;
+}
+
+.cell-recipe {
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: #1e3a8a;
+    line-height: 1.3;
+}
+
+.cell-add {
+    font-size: 0.75rem;
+    color: #aaa;
+    background: none;
+    border: 1px dashed #ccc;
+    border-radius: 4px;
+    padding: 0.2rem 0.5rem;
+    cursor: pointer;
+    width: 100%;
+}
+
+.cell-add:hover {
+    border-color: #3b82f6;
+    color: #3b82f6;
+}
+
+.cell-remove {
+    font-size: 0.75rem;
+    background: none;
+    border: none;
+    color: #999;
+    cursor: pointer;
+    padding: 0;
+    line-height: 1;
+    align-self: flex-end;
+    position: absolute;
+    top: 0.35rem;
+    right: 0.35rem;
+}
+
+.cell-remove:hover {
+    color: #e53e3e;
+}
+
+.cell-select {
+    font-size: 0.8rem;
+    font-family: inherit;
+    border: 1px solid #3b82f6;
+    border-radius: 4px;
+    padding: 0.2rem 0.3rem;
+    width: 100%;
+    background: #fff;
+}
+
+.cell-cancel {
+    font-size: 0.7rem;
+    background: none;
+    border: none;
+    color: #aaa;
+    cursor: pointer;
+    padding: 0;
+    text-decoration: underline;
+}
+
+.cell-cancel:hover {
+    color: #555;
+}
