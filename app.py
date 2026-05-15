@@ -11,7 +11,9 @@ migrate.init_app(app, db)
 import models  # noqa: E402 — must come after db is initialized
 
 from routes.api import api  # noqa: E402
+from routes.views import views  # noqa: E402
 app.register_blueprint(api, url_prefix="/api")
+app.register_blueprint(views)
 
 @app.route("/")
 def index():
