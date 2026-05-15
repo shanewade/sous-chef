@@ -436,3 +436,100 @@ body {
 .cell-cancel:hover {
     color: #555;
 }
+
+/* Shopping list */
+.sl-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.5rem;
+}
+
+@media (max-width: 800px) {
+    .sl-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 520px) {
+    .sl-grid { grid-template-columns: 1fr; }
+}
+
+.sl-category {
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    padding: 1rem 1.25rem 1.25rem;
+}
+
+.sl-category-title {
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #3b82f6;
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.4rem;
+    border-bottom: 1px solid #e8f0fe;
+}
+
+.sl-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.sl-label {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    cursor: pointer;
+}
+
+.sl-checkbox {
+    flex-shrink: 0;
+    margin-top: 0.15rem;
+    accent-color: #3b82f6;
+    cursor: pointer;
+}
+
+.sl-text {
+    font-size: 0.9rem;
+    line-height: 1.4;
+}
+
+.sl-qty {
+    color: #3b82f6;
+    font-weight: 500;
+    margin-right: 0.2rem;
+}
+
+.sl-checked .sl-text {
+    text-decoration: line-through;
+    color: #aaa;
+}
+
+.sl-checked .sl-qty {
+    color: #aaa;
+}
+
+/* Print styles */
+@media print {
+    .navbar,
+    .btn {
+        display: none !important;
+    }
+
+    body {
+        background: white;
+    }
+
+    .sl-category {
+        box-shadow: none;
+        border: 1px solid #ddd;
+        break-inside: avoid;
+    }
+
+    .sl-checked .sl-text {
+        text-decoration: none;
+        color: inherit;
+    }
+}

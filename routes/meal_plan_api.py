@@ -1,6 +1,7 @@
 from flask import Blueprint, jsonify, request
 from extensions import db
 from models import MealPlan, MealPlanEntry, Recipe
+from shopping_utils import aggregate
 
 meal_plan_bp = Blueprint("meal_plan_api", __name__)
 
@@ -84,3 +85,13 @@ def delete_entry(plan_id, entry_id):
     db.session.delete(entry)
     db.session.commit()
     return "", 204
+
+
+@meal_plan_bp.route("/meal-plans/<int:id>/shopping-list", methods=["GET"])
+def shopping_list(id):
+    plan = db.session.get(MealPlan, id)
+    if plan is None:
+        return jsonify({"error": "Meal plan not found"}), 404
+
+    recipes = {e.recipe_id: e.recipe for e in plan.entries if e.recipe}.values()
+    return jsonify(aggregate(recipes))

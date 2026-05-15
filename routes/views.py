@@ -2,6 +2,7 @@ from datetime import date, timedelta
 from flask import Blueprint, render_template, abort
 from extensions import db
 from models import MealPlan, Recipe
+from shopping_utils import aggregate
 
 views = Blueprint("views", __name__)
 
@@ -40,3 +41,27 @@ def meal_plan():
 
     slots = {(e.day_of_week, e.meal_type): e for e in plan.entries}
     return render_template("meal_plan/index.html", plan=plan, slots=slots)
+
+
+@views.route("/shopping-list")
+def shopping_list():
+    today = date.today()
+    monday = today - timedelta(days=today.weekday())
+    plan = MealPlan.query.filter_by(week_start_date=monday).first()
+
+    if plan is None:
+        items, grouped, plan_id = [], {}, None
+    else:
+        recipes = {e.recipe_id: e.recipe for e in plan.entries if e.recipe}.values()
+        items = aggregate(recipes)
+        grouped = {}
+        for item in items:
+            grouped.setdefault(item['category'], []).append(item)
+        plan_id = plan.id
+
+    return render_template(
+        "shopping_list/index.html",
+        grouped=grouped,
+        plan_id=plan_id,
+        week_label=monday.strftime('%b %-d'),
+    )
