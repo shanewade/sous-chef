@@ -1,18 +1,16 @@
 import click
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
+from flask_migrate import Migrate
 
 app = Flask(__name__)
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///recipe_app.db"
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 db = SQLAlchemy(app)
+migrate = Migrate(app, db)
 
-@app.cli.command("db-init")
-def db_init():
-    import models
-    db.create_all()
-    click.echo("Database tables created.")
+import models  # noqa: E402 — must come after db is defined
 
 @app.route("/")
 def index():

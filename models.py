@@ -20,13 +20,13 @@ class Recipe(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(200), nullable=False)
     description = db.Column(db.Text)
-    ingredients = db.Column(db.Text)
+    ingredients_text = db.Column(db.Text)
     steps = db.Column(db.Text)
     cook_time_minutes = db.Column(db.Integer)
     servings = db.Column(db.Integer)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-    ingredient_list = db.relationship("Ingredient", secondary=recipe_ingredients, backref="recipes")
+    ingredients = db.relationship("Ingredient", secondary=recipe_ingredients, backref="recipes")
 
     def __repr__(self):
         return f"<Recipe {self.title}>"
