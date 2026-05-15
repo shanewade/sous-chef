@@ -70,3 +70,8 @@ class TestDeleteRecipe:
 
         res = client.get(f"/api/recipes/{recipe_id}")
         assert res.status_code == 404
+
+    def test_missing_recipe_returns_404(self, client):
+        res = client.delete("/api/recipes/999")
+        assert res.status_code == 404
+        assert res.get_json() == {"error": "Recipe not found"}
