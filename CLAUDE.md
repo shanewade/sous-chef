@@ -4,15 +4,57 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-Sous-chef is a Python project in early development. A virtual environment is checked in at `venv/` (Python 3.9).
+Sous-chef is a Flask meal-planning app. It lets users browse and create recipes, assign them to a weekly meal plan, and generate a shopping list aggregated from the plan's ingredients. The project is in early development. A virtual environment is checked in at `venv/` (Python 3.9).
 
-## Setup
+## Commands
 
 ```bash
+# Activate the virtualenv before running anything
 source venv/bin/activate
-pip install -r requirements.txt   # once a requirements file exists
+
+# Run the dev server (port 5001)
+python app.py
+
+# Run all tests
+pytest
+
+# Run a single test file
+pytest tests/test_recipes_api.py
+
+# Run a single test by name
+pytest tests/test_recipes_api.py::TestCreateRecipe::test_creates_recipe_and_returns_201
+
+# Run tests with coverage
+pytest --cov=. --cov-report=term-missing
+
+# Apply database migrations
+flask db upgrade
+
+# Generate a new migration after changing models.py
+flask db migrate -m "description"
 ```
 
-## Environment
+## Architecture
 
-Secrets and configuration live in `.env` (gitignored). Copy from `.env.example` if one exists and fill in values before running.
+**Entry point:** `app.py` creates the Flask app, initialises SQLAlchemy and Flask-Migrate via `extensions.py`, then registers three blueprints:
+- `routes/api.py` (`api`) — JSON CRUD for recipes, mounted at `/api`
+- `routes/meal_plan_api.py` (`meal_plan_bp`) — JSON CRUD for meal plans, entries, and shopping list, mounted at `/api`
+- `routes/views.py` (`views`) — HTML page routes, no prefix
+
+**Models** (`models.py`): `Recipe`, `Ingredient`, `MealPlan`, `MealPlanEntry`. `db` and `migrate` are singletons in `extensions.py` to avoid circular imports — `models.py` must be imported after `db.init_app(app)`.
+
+**Shopping list pipeline** (`shopping_utils.py`): `parse_line()` extracts quantity/unit/name from a free-text ingredient line. `aggregate()` iterates all recipes in a plan, calls `parse_line()` on each line of `ingredients_text`, sums quantities by `(name, unit)` key, and returns a sorted list of dicts. `categorize()` does keyword matching against five hardcoded category lists (first match wins). The view and the API endpoint both call `aggregate()` directly — there is no internal HTTP call.
+
+**Ingredient format:** `Recipe.ingredients_text` is a plain text blob, one ingredient per line, e.g. `"2 cups flour\n1 tsp salt"`. The parser handles integer, decimal, and fractional quantities (`1/2`, `1 1/2`), normalises unit aliases to canonical forms, and treats any unrecognised word as part of the ingredient name.
+
+**Meal plan date logic:** both `/meal-plan` and `/shopping-list` views automatically find or create the plan whose `week_start_date` is the Monday of the current week. There is only ever one plan per week.
+
+**Templates** extend `templates/base.html`. Each feature area has its own subdirectory: `templates/recipes/`, `templates/meal_plan/`, `templates/shopping_list/`. There is no JavaScript framework — interactivity on the meal plan grid and new-recipe form is vanilla JS using `fetch`.
+
+## Test Setup
+
+Tests use an in-memory SQLite database. Because Flask-SQLAlchemy 3.1 caches its engine at `init_app` time and blocks a second `init_app` call, `conftest.py` injects a fresh `StaticPool` in-memory engine directly into `_db._app_engines[flask_app][None]` for each test. `StaticPool` is required so the fixture's app context and the test client's request context share the same in-memory database. The `db` fixture is `autouse=True` and calls `create_all` / `drop_all` around every test.
+
+## Database
+
+SQLite file lives at `instance/recipe_app.db`. Migrations are managed with Flask-Migrate (Alembic). The initial migration (`migrations/versions/f8f2af88bbdf`) creates all tables — if the DB file is missing or empty, run `flask db upgrade` to recreate them. Do not use `db.create_all()` in production; use migrations.
