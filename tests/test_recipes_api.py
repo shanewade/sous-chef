@@ -52,6 +52,15 @@ class TestUpdateRecipe:
         assert res.status_code == 200
         assert res.get_json()["servings"] == 8
 
+    def test_missing_recipe_returns_404(self, client):
+        res = client.put(
+            "/api/recipes/999",
+            data=json.dumps({"servings": 8}),
+            content_type="application/json",
+        )
+        assert res.status_code == 404
+        assert res.get_json() == {"error": "Recipe not found"}
+
 
 class TestDeleteRecipe:
     def test_deletes_recipe_and_returns_204(self, client):
