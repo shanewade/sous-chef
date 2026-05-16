@@ -1,4 +1,9 @@
 venv/
 __pycache__/
+*.py[cod]
 .env
 instance/
+.coverage
+.pytest_cache/
+htmlcov/
+.DS_Store
