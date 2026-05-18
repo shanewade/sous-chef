@@ -1,4 +1,4 @@
-from flask import Flask, render_template
+from flask import Flask, render_template, send_from_directory
 from extensions import db, migrate
 
 app = Flask(__name__)
@@ -21,6 +21,10 @@ app.register_blueprint(views)
 @app.route("/")
 def index():
     return "<h1>Hello World</h1>"
+
+@app.route("/favicon.ico")
+def favicon():
+    return send_from_directory(app.static_folder, "favicon.ico", mimetype="image/x-icon")
 
 @app.errorhandler(404)
 def not_found(e):
