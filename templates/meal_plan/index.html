@@ -28,7 +28,12 @@
          data-meal="{{ meal }}"
          {% if entry %}data-entry-id="{{ entry.id }}"{% endif %}>
         {% if entry %}
-        <span class="cell-recipe">{{ entry.recipe.title }}</span>
+        <span class="cell-recipe">
+            {% if entry.scale_factor and entry.scale_factor != 1.0 %}
+            <span class="scale-badge">{{ '½' if entry.scale_factor == 0.5 else '2×' }}</span>
+            {% endif %}
+            {{ entry.recipe.title }}
+        </span>
         <button class="cell-remove" aria-label="Remove">×</button>
         {% else %}
         <button class="cell-add">+ Add</button>
@@ -70,10 +75,14 @@ async function fetchRecipes() {
     return recipesCache;
 }
 
-function renderFilled(cell, entryId, recipeTitle) {
+function renderFilled(cell, entryId, recipeTitle, scaleFactor) {
     cell.dataset.entryId = entryId;
+    var scale = scaleFactor || 1.0;
+    var badge = (scale !== 1.0)
+        ? '<span class="scale-badge">' + (scale === 0.5 ? '½' : '2×') + '</span>'
+        : '';
     cell.innerHTML =
-        `<span class="cell-recipe">${esc(recipeTitle)}</span>` +
+        `<span class="cell-recipe">${badge}${esc(recipeTitle)}</span>` +
         `<button class="cell-remove" aria-label="Remove">×</button>`;
 }
 
@@ -103,18 +112,21 @@ async function showSelect(cell) {
 
     select.addEventListener('change', async () => {
         if (!select.value) return;
+        const recipeId = parseInt(select.value);
+        const scale = parseFloat(localStorage.getItem('scale-' + recipeId) || '1');
         const res = await fetch(`/api/meal-plans/${PLAN_ID}/entries`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                recipe_id: parseInt(select.value),
+                recipe_id: recipeId,
                 day_of_week: cell.dataset.day,
                 meal_type: cell.dataset.meal,
+                scale_factor: scale,
             }),
         });
         if (res.ok) {
             const entry = await res.json();
-            renderFilled(cell, entry.id, entry.recipe_title);
+            renderFilled(cell, entry.id, entry.recipe_title, entry.scale_factor);
         } else {
             renderEmpty(cell);
         }
