@@ -185,3 +185,50 @@ class TestShoppingItems:
         plan_id = create_plan(client).get_json()["id"]
         res = client.delete(f"/api/meal-plans/{plan_id}/shopping-items/999")
         assert res.status_code == 404
+
+
+class TestScaleFactor:
+    def test_entry_defaults_scale_factor_to_1(self, client):
+        plan_id = create_plan(client).get_json()["id"]
+        recipe_id = create_recipe(client).get_json()["id"]
+        res = post_json(client, f"/api/meal-plans/{plan_id}/entries", {
+            "recipe_id": recipe_id, "day_of_week": "Monday", "meal_type": "dinner",
+        })
+        assert res.status_code == 201
+        assert res.get_json()["scale_factor"] == 1.0
+
+    def test_entry_stores_custom_scale_factor(self, client):
+        plan_id = create_plan(client).get_json()["id"]
+        recipe_id = create_recipe(client).get_json()["id"]
+        res = post_json(client, f"/api/meal-plans/{plan_id}/entries", {
+            "recipe_id": recipe_id, "day_of_week": "Monday", "meal_type": "dinner",
+            "scale_factor": 2.0,
+        })
+        assert res.get_json()["scale_factor"] == 2.0
+
+    def test_shopping_list_applies_scale_to_quantities(self, client):
+        plan_id = create_plan(client).get_json()["id"]
+        recipe_id = create_recipe(client, ingredients_text="1 cup flour").get_json()["id"]
+        post_json(client, f"/api/meal-plans/{plan_id}/entries", {
+            "recipe_id": recipe_id, "day_of_week": "Monday", "meal_type": "dinner",
+            "scale_factor": 2.0,
+        })
+        items = client.get(f"/api/meal-plans/{plan_id}/shopping-list").get_json()
+        flour = next(i for i in items if i["ingredient"] == "flour")
+        assert flour["quantity"] == "2"
+
+    def test_shopping_list_sums_same_recipe_at_different_scales(self, client):
+        plan_id = create_plan(client).get_json()["id"]
+        recipe_id = create_recipe(client, ingredients_text="1 cup flour").get_json()["id"]
+        # Add the same recipe twice: 1× on Monday, 2× on Wednesday
+        post_json(client, f"/api/meal-plans/{plan_id}/entries", {
+            "recipe_id": recipe_id, "day_of_week": "Monday", "meal_type": "dinner",
+            "scale_factor": 1.0,
+        })
+        post_json(client, f"/api/meal-plans/{plan_id}/entries", {
+            "recipe_id": recipe_id, "day_of_week": "Wednesday", "meal_type": "dinner",
+            "scale_factor": 2.0,
+        })
+        items = client.get(f"/api/meal-plans/{plan_id}/shopping-list").get_json()
+        flour = next(i for i in items if i["ingredient"] == "flour")
+        assert flour["quantity"] == "3"  # 1 + 2 = 3 cups

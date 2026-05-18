@@ -60,6 +60,7 @@ class MealPlanEntry(db.Model):
     recipe_id = db.Column(db.Integer, db.ForeignKey("recipe.id"), nullable=False)
     day_of_week = db.Column(db.String(10))
     meal_type = db.Column(db.String(50))
+    scale_factor = db.Column(db.Float, default=1.0)
 
     recipe = db.relationship("Recipe")
 

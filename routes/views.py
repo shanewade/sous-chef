@@ -91,8 +91,8 @@ def shopping_list():
     if plan is None:
         items, grouped, plan_id = [], {}, None
     else:
-        recipes = {e.recipe_id: e.recipe for e in plan.entries if e.recipe}.values()
-        items = aggregate(recipes)
+        recipe_scales = [(e.recipe, e.scale_factor or 1.0) for e in plan.entries if e.recipe]
+        items = aggregate(recipe_scales)
         grouped = {}
         for item in items:
             item['manual'] = False

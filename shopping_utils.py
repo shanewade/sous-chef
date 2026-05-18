@@ -284,7 +284,8 @@ def aggregate(recipes):
     # each value: { base_qty, family, source_units, raw_names, unit }
     groups = {}
 
-    for recipe in recipes:
+    for item in recipes:
+        recipe, scale = item if isinstance(item, tuple) else (item, 1.0)
         if not recipe.ingredients_text:
             continue
         for line in recipe.ingredients_text.splitlines():
@@ -313,13 +314,14 @@ def aggregate(recipes):
                 g['raw_names'].append(name)
 
                 if qty is not None:
+                    qty_scaled = qty * scale
                     if family:
-                        base, _ = _to_base(qty, unit)
+                        base, _ = _to_base(qty_scaled, unit)
                         g['base_qty'] = (g['base_qty'] or 0.0) + base
                         g['source_units'].add(unit)
                     else:
                         # Count unit (e.g. eggs, cloves) or no unit — sum directly
-                        g['base_qty'] = (g['base_qty'] or 0.0) + qty
+                        g['base_qty'] = (g['base_qty'] or 0.0) + qty_scaled
                         if unit:
                             g['source_units'].add(unit)
 

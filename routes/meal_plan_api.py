@@ -13,6 +13,7 @@ def _entry_dict(entry):
         "recipe_title": entry.recipe.title if entry.recipe else None,
         "day_of_week": entry.day_of_week,
         "meal_type": entry.meal_type,
+        "scale_factor": entry.scale_factor or 1.0,
     }
 
 
@@ -70,6 +71,7 @@ def add_entry(id):
         recipe_id=recipe_id,
         day_of_week=data.get("day_of_week"),
         meal_type=data.get("meal_type"),
+        scale_factor=float(data.get("scale_factor") or 1.0),
     )
     db.session.add(entry)
     db.session.commit()
@@ -93,8 +95,8 @@ def shopping_list(id):
     if plan is None:
         return jsonify({"error": "Meal plan not found"}), 404
 
-    recipes = {e.recipe_id: e.recipe for e in plan.entries if e.recipe}.values()
-    return jsonify(aggregate(recipes))
+    recipe_scales = [(e.recipe, e.scale_factor or 1.0) for e in plan.entries if e.recipe]
+    return jsonify(aggregate(recipe_scales))
 
 
 def _parse_shopping_item(raw_text):

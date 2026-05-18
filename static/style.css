@@ -799,6 +799,22 @@ body {
     background: #f0f4ff;
 }
 
+.servings-display {
+    font-size: 0.875rem;
+    color: var(--color-text-muted);
+}
+
+.scale-badge {
+    font-size: 0.65rem;
+    font-weight: 700;
+    background: var(--color-primary);
+    color: #fff;
+    border-radius: 3px;
+    padding: 0.05rem 0.3rem;
+    margin-right: 0.2rem;
+    vertical-align: middle;
+}
+
 .cell-recipe {
     font-size: 0.8rem;
     font-weight: 500;

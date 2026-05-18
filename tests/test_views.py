@@ -144,12 +144,19 @@ class TestRecipesDetail:
         assert b'data-system="us"' in res.data
         assert b'data-system="metric"' in res.data
 
+    def test_shows_scale_selector(self, client):
+        recipe_id = create_recipe(client, ingredients_text="2 cups flour").get_json()["id"]
+        res = client.get(f"/recipes/{recipe_id}")
+        assert b'id="scale-toggle"' in res.data
+        assert b'data-scale="0.5"' in res.data
+        assert b'data-scale="2"' in res.data
+
     def test_unit_conversion_js_present(self, client):
         recipe_id = create_recipe(client).get_json()["id"]
         res = client.get(f"/recipes/{recipe_id}")
         assert b'unitSystem' in res.data
         assert b'localStorage' in res.data
-        assert b'data-metric' in res.data
+        assert b'applyDisplay' in res.data
 
     def test_shows_edit_button_linking_to_edit_page(self, client):
         recipe_id = create_recipe(client).get_json()["id"]
