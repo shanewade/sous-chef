@@ -140,3 +140,48 @@ class TestShoppingListAPI:
         items = client.get(f"/api/meal-plans/{plan_id}/shopping-list").get_json()
         flour = next(i for i in items if i["ingredient"] == "flour")
         assert flour["quantity"] == "3"
+
+
+class TestShoppingItems:
+    def test_add_item_returns_201(self, client):
+        plan_id = create_plan(client).get_json()["id"]
+        res = post_json(client, f"/api/meal-plans/{plan_id}/shopping-items", {"text": "2 cups milk"})
+        assert res.status_code == 201
+        body = res.get_json()
+        assert body["ingredient"] == "milk"
+        assert body["quantity"] == "2"
+        assert body["unit"] == "cup"
+        assert body["category"] == "Dairy & Eggs"
+
+    def test_add_item_missing_text_returns_400(self, client):
+        plan_id = create_plan(client).get_json()["id"]
+        res = post_json(client, f"/api/meal-plans/{plan_id}/shopping-items", {})
+        assert res.status_code == 400
+
+    def test_add_item_invalid_plan_returns_404(self, client):
+        res = post_json(client, "/api/meal-plans/999/shopping-items", {"text": "milk"})
+        assert res.status_code == 404
+
+    def test_add_item_no_unit_accepted(self, client):
+        plan_id = create_plan(client).get_json()["id"]
+        res = post_json(client, f"/api/meal-plans/{plan_id}/shopping-items", {"text": "dish soap"})
+        assert res.status_code == 201
+        assert res.get_json()["ingredient"] == "dish soap"
+
+    def test_delete_item_returns_204(self, client):
+        plan_id = create_plan(client).get_json()["id"]
+        item_id = post_json(client, f"/api/meal-plans/{plan_id}/shopping-items", {"text": "milk"}).get_json()["id"]
+        res = client.delete(f"/api/meal-plans/{plan_id}/shopping-items/{item_id}")
+        assert res.status_code == 204
+
+    def test_delete_item_wrong_plan_returns_404(self, client):
+        plan_id = create_plan(client).get_json()["id"]
+        other_id = create_plan(client, week_start_date="2026-05-26").get_json()["id"]
+        item_id = post_json(client, f"/api/meal-plans/{plan_id}/shopping-items", {"text": "milk"}).get_json()["id"]
+        res = client.delete(f"/api/meal-plans/{other_id}/shopping-items/{item_id}")
+        assert res.status_code == 404
+
+    def test_delete_missing_item_returns_404(self, client):
+        plan_id = create_plan(client).get_json()["id"]
+        res = client.delete(f"/api/meal-plans/{plan_id}/shopping-items/999")
+        assert res.status_code == 404
