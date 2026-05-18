@@ -14,7 +14,7 @@
 {% if grouped %}
 <div class="sl-grid">
     {% for category, items in grouped.items() %}
-    <section class="sl-category">
+    <section class="sl-category" data-category="{{ category }}">
         <h2 class="sl-category-title">{{ category }}</h2>
         <ul class="sl-list">
             {% for item in items %}
@@ -47,6 +47,20 @@
 {% endif %}
 
 <script>
+// Reorder categories per settings
+(function() {
+    try {
+        var s = JSON.parse(localStorage.getItem('appSettings') || '{}');
+        var order = s.categoryOrder || ['Produce','Dairy & Eggs','Meat & Seafood','Grains & Bread','Pantry'];
+        var grid = document.querySelector('.sl-grid');
+        if (!grid) return;
+        order.forEach(function(cat) {
+            var section = grid.querySelector('[data-category="' + cat + '"]');
+            if (section) grid.appendChild(section);
+        });
+    } catch(e) {}
+}());
+
 document.querySelectorAll('.sl-checkbox').forEach(cb => {
     cb.addEventListener('change', () => {
         cb.closest('.sl-item').classList.toggle('sl-checked', cb.checked);
