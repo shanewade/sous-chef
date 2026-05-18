@@ -322,6 +322,23 @@ class TestShoppingListView:
         assert b'unitSystem' in res.data
         assert b'TO_ML' in res.data
 
+    def test_shows_quick_add_input_when_plan_exists(self, client):
+        client.get("/meal-plan")  # creates this week's plan
+        res = client.get("/shopping-list")
+        assert b'id="quick-add-input"' in res.data
+        assert b'id="quick-add-btn"' in res.data
+
+    def test_manual_item_appears_on_shopping_list(self, client):
+        # Create this week's plan and get its id via the API
+        from datetime import date, timedelta
+        today = date.today()
+        monday = (today - timedelta(days=today.weekday())).isoformat()
+        plan_id = post_json(client, "/api/meal-plans", {"week_start_date": monday}).get_json()["id"]
+        post_json(client, f"/api/meal-plans/{plan_id}/shopping-items", {"text": "dish soap"})
+        res = client.get("/shopping-list")
+        assert b"dish soap" in res.data
+        assert b"sl-remove-btn" in res.data
+
     def test_shows_empty_state_when_plan_has_no_ingredients(self, client):
         recipe_id = create_recipe(client).get_json()["id"]
         plan_id = post_json(client, "/api/meal-plans", {

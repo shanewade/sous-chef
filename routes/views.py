@@ -1,8 +1,8 @@
 from datetime import date, timedelta
 from flask import Blueprint, render_template, abort, flash, redirect, url_for, request
 from extensions import db
-from models import MealPlan, Recipe, Tag
-from shopping_utils import aggregate
+from models import MealPlan, Recipe, Tag, ShoppingListItem
+from shopping_utils import aggregate, _fmt_qty
 from forms import RecipeForm
 
 views = Blueprint("views", __name__)
@@ -95,7 +95,23 @@ def shopping_list():
         items = aggregate(recipes)
         grouped = {}
         for item in items:
+            item['manual'] = False
             grouped.setdefault(item['category'], []).append(item)
+
+        # Merge manually added items
+        from routes.meal_plan_api import _parse_shopping_item
+        manual_items = ShoppingListItem.query.filter_by(meal_plan_id=plan.id).order_by(ShoppingListItem.created_at).all()
+        for mi in manual_items:
+            qty, unit, name, category = _parse_shopping_item(mi.raw_text)
+            grouped.setdefault(category, []).append({
+                'ingredient': name,
+                'quantity': _fmt_qty(qty),
+                'unit': unit or '',
+                'category': category,
+                'manual': True,
+                'item_id': mi.id,
+            })
+
         plan_id = plan.id
 
     return render_template(

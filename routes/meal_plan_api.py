@@ -1,7 +1,7 @@
 from flask import Blueprint, jsonify, request
 from extensions import db
-from models import MealPlan, MealPlanEntry, Recipe
-from shopping_utils import aggregate
+from models import MealPlan, MealPlanEntry, Recipe, ShoppingListItem
+from shopping_utils import aggregate, parse_line, categorize, _fmt_qty, _expand_ingredient, _normalize_name
 
 meal_plan_bp = Blueprint("meal_plan_api", __name__)
 
@@ -95,3 +95,53 @@ def shopping_list(id):
 
     recipes = {e.recipe_id: e.recipe for e in plan.entries if e.recipe}.values()
     return jsonify(aggregate(recipes))
+
+
+def _parse_shopping_item(raw_text):
+    """Parse a free-text shopping item into a display dict."""
+    parsed = parse_line(raw_text)
+    if parsed is None:
+        return None, None, raw_text.lower(), "Other"
+    qty, unit, name = parsed
+    # Use _expand_ingredient to strip qualifiers, take first result
+    expanded = _expand_ingredient(qty, unit, name)
+    if expanded:
+        qty, unit, name = expanded[0]
+    return qty, unit, name, categorize(name)
+
+
+@meal_plan_bp.route("/meal-plans/<int:id>/shopping-items", methods=["POST"])
+def add_shopping_item(id):
+    plan = db.session.get(MealPlan, id)
+    if plan is None:
+        return jsonify({"error": "Meal plan not found"}), 404
+
+    data = request.get_json(silent=True) or {}
+    text = (data.get("text") or "").strip()
+    if not text:
+        return jsonify({"error": "text is required"}), 400
+
+    item = ShoppingListItem(meal_plan_id=id, raw_text=text)
+    db.session.add(item)
+    db.session.commit()
+
+    qty, unit, name, category = _parse_shopping_item(text)
+    return jsonify({
+        "id": item.id,
+        "raw_text": item.raw_text,
+        "ingredient": name,
+        "quantity": _fmt_qty(qty),
+        "unit": unit or "",
+        "category": category,
+    }), 201
+
+
+@meal_plan_bp.route("/meal-plans/<int:plan_id>/shopping-items/<int:item_id>", methods=["DELETE"])
+def delete_shopping_item(plan_id, item_id):
+    item = db.session.get(ShoppingListItem, item_id)
+    if item is None or item.meal_plan_id != plan_id:
+        return jsonify({"error": "Item not found"}), 404
+
+    db.session.delete(item)
+    db.session.commit()
+    return "", 204

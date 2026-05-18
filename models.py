@@ -62,3 +62,13 @@ class MealPlanEntry(db.Model):
     meal_type = db.Column(db.String(50))
 
     recipe = db.relationship("Recipe")
+
+
+class ShoppingListItem(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    meal_plan_id = db.Column(db.Integer, db.ForeignKey("meal_plan.id"), nullable=False)
+    raw_text = db.Column(db.String(500), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def __repr__(self):
+        return f"<ShoppingListItem {self.raw_text}>"
