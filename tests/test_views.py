@@ -8,6 +8,11 @@ class TestIndex:
         assert res.status_code == 302
         assert res.headers["Location"] == "/recipes"
 
+    def test_favicon_returns_200(self, client):
+        res = client.get("/favicon.ico")
+        assert res.status_code == 200
+        assert res.content_type == "image/x-icon"
+
 
 def create_recipe(client, **kwargs):
     data = {"title": "Test Recipe", **kwargs}
@@ -197,6 +202,13 @@ class TestErrorPages:
     def test_404_links_back_to_recipes(self, client):
         res = client.get("/recipes/999999")
         assert b'href="/recipes"' in res.data
+
+    def test_500_shows_friendly_message(self, app):
+        import app as app_module
+        with app.test_request_context():
+            html, status = app_module.server_error(Exception("test"))
+        assert status == 500
+        assert "Something Went Wrong" in html
 
 
 class TestMealPlanView:

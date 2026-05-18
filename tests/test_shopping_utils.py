@@ -1,4 +1,7 @@
-from shopping_utils import parse_line, categorize, aggregate, _fmt_qty, _normalize_name
+from shopping_utils import (
+    parse_line, categorize, aggregate, _fmt_qty, _normalize_name,
+    _expand_ingredient, _to_base,
+)
 
 
 class TestParseLine:
@@ -83,6 +86,18 @@ class TestParseLine:
         assert qty is None
         assert unit is None
         assert name == "eggs"
+
+    def test_no_space_division_by_zero_returns_none_qty(self):
+        qty, unit, name = parse_line("1/0g flour")
+        assert qty is None
+        assert unit == "g"
+        assert name == "flour"
+
+    def test_no_space_unrecognised_unit_stays_in_name(self):
+        qty, unit, name = parse_line("2x garlic cloves")
+        assert qty == 2.0
+        assert unit is None
+        assert "garlic cloves" in name
 
 
 class TestFmtQty:
@@ -195,30 +210,46 @@ class TestAggregate:
 
 class TestExpandIngredient:
     def test_splits_salt_and_pepper(self):
-        from shopping_utils import _expand_ingredient
         result = _expand_ingredient(None, None, "salt and pepper to taste")
         assert result == [(None, None, "salt"), (None, None, "pepper")]
 
     def test_splits_salt_and_black_pepper(self):
-        from shopping_utils import _expand_ingredient
         result = _expand_ingredient(None, None, "salt and black pepper to taste")
         assert result == [(None, None, "salt"), (None, None, "black pepper")]
 
     def test_strips_to_taste_without_splitting(self):
-        from shopping_utils import _expand_ingredient
         result = _expand_ingredient(None, None, "salt to taste")
         assert result == [(None, None, "salt")]
 
     def test_strips_as_needed(self):
-        from shopping_utils import _expand_ingredient
         result = _expand_ingredient(None, None, "olive oil as needed")
         assert result == [(None, None, "olive oil")]
 
     def test_does_not_split_when_qty_present(self):
-        from shopping_utils import _expand_ingredient
-        # "bread and butter" with a quantity should stay together
         result = _expand_ingredient(1.0, "cup", "bread and butter")
         assert len(result) == 1
+
+    def test_returns_empty_list_when_name_is_only_qualifier(self):
+        # A line that is just "to taste" with no ingredient name
+        result = _expand_ingredient(None, None, "to taste")
+        assert result == []
+
+
+class TestToBase:
+    def test_volume_unit_converts(self):
+        base, family = _to_base(1.0, 'cup')
+        assert family == 'volume'
+        assert base == 48.0
+
+    def test_weight_unit_converts(self):
+        base, family = _to_base(1.0, 'lb')
+        assert family == 'weight'
+        assert abs(base - 453.592) < 0.01
+
+    def test_count_unit_returns_none(self):
+        base, family = _to_base(3.0, 'clove')
+        assert base is None
+        assert family is None
 
 
 class TestNormalizeName:

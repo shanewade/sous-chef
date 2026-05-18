@@ -292,8 +292,6 @@ def aggregate(recipes):
             if parsed is None:
                 continue
             qty, unit, name = parsed
-            if not name:
-                continue
 
             for qty, unit, name in _expand_ingredient(qty, unit, name):
                 norm = _normalize_name(name)
