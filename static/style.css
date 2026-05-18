@@ -94,6 +94,11 @@
     padding: 0;
 }
 
+/* Inputs don't inherit color from body by default in most browsers */
+input, textarea, select, button {
+    color: inherit;
+}
+
 body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     font-size: 16px;
