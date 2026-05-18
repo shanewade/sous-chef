@@ -4,6 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Meal Planner{% endblock %}</title>
+    <script>
+    (function(){
+        try {
+            var s = JSON.parse(localStorage.getItem('appSettings') || '{}');
+            if (s.theme && s.theme !== 'default') {
+                document.documentElement.setAttribute('data-theme', s.theme);
+            }
+        } catch(e) {}
+    }());
+    </script>
     <link rel="shortcut icon" href="/favicon.ico">
     <link rel="icon" type="image/png" sizes="64x64" href="{{ url_for('static', filename='favicon.png') }}">
     <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='apple-touch-icon.png') }}">
@@ -19,6 +29,7 @@
             <li><a href="/recipes">Recipes</a></li>
             <li><a href="/meal-plan">Meal Plan</a></li>
             <li><a href="/shopping-list">Shopping List</a></li>
+            <li><a href="/settings">Settings</a></li>
         </ul>
     </nav>
     <main class="container">

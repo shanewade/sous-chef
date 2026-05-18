@@ -60,6 +60,11 @@ def recipes_edit(id):
     return render_template("recipes/edit.html", recipe=recipe)
 
 
+@views.route("/settings")
+def settings_page():
+    return render_template("settings.html")
+
+
 @views.route("/meal-plan")
 def meal_plan():
     today = date.today()

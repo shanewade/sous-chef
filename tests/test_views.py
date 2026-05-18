@@ -225,6 +225,42 @@ class TestErrorPages:
         assert "Something Went Wrong" in html
 
 
+class TestSettingsView:
+    def test_returns_200(self, client):
+        res = client.get("/settings")
+        assert res.status_code == 200
+
+    def test_shows_all_ten_themes(self, client):
+        res = client.get("/settings")
+        for theme in [b'default', b'forest', b'sunset', b'ocean', b'lavender',
+                      b'slate', b'rose', b'espresso', b'mint', b'midnight']:
+            assert theme in res.data
+
+    def test_shows_unit_toggle(self, client):
+        res = client.get("/settings")
+        assert b'id="unit-toggle"' in res.data
+        assert b'data-system="us"' in res.data
+        assert b'data-system="metric"' in res.data
+
+    def test_shows_category_order_list(self, client):
+        res = client.get("/settings")
+        assert b'id="category-order-list"' in res.data
+        assert b'categoryOrder' in res.data
+
+    def test_shows_reset_button(self, client):
+        res = client.get("/settings")
+        assert b'id="reset-btn"' in res.data
+
+    def test_settings_link_in_navbar(self, client):
+        res = client.get("/recipes")
+        assert b'href="/settings"' in res.data
+
+    def test_theme_script_in_head(self, client):
+        res = client.get("/recipes")
+        assert b'appSettings' in res.data
+        assert b'data-theme' in res.data
+
+
 class TestMealPlanView:
     def test_returns_200(self, client):
         res = client.get("/meal-plan")

@@ -211,6 +211,17 @@
         }
     });
 
+    // Pre-fill servings from settings if field is empty
+    (function() {
+        try {
+            var s = JSON.parse(localStorage.getItem('appSettings') || '{}');
+            var servingsEl = document.getElementById('servings');
+            if (s.defaultServings && !servingsEl.value) {
+                servingsEl.value = s.defaultServings;
+            }
+        } catch(e) {}
+    }());
+
     renderChips();
 }());
 </script>

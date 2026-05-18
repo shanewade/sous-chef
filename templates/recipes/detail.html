@@ -93,7 +93,14 @@
     });
 
     // ── Unit conversion ───────────────────────────────────────────────────────
-    var PREF_KEY = 'unitSystem';
+    function getSettings() {
+        try { return JSON.parse(localStorage.getItem('appSettings') || '{}'); } catch(e) { return {}; }
+    }
+    function saveSetting(key, value) {
+        var s = getSettings();
+        s[key] = value;
+        localStorage.setItem('appSettings', JSON.stringify(s));
+    }
 
     // US → ml conversion factors
     var TO_ML = { tsp: 5, tbsp: 15, cup: 240, 'fl oz': 30 };
@@ -224,14 +231,14 @@
         annotateIngredients();
         annotateSteps();
 
-        var current = localStorage.getItem(PREF_KEY) || 'us';
+        var current = getSettings().unitSystem || 'us';
         applySystem(current);
 
         toggle.addEventListener('click', function (e) {
             var btn = e.target.closest('.unit-btn');
             if (!btn) return;
             current = btn.dataset.system;
-            localStorage.setItem(PREF_KEY, current);
+            saveSetting('unitSystem', current);
             applySystem(current);
         });
     }

@@ -20,7 +20,7 @@
     {% endfor %}
 
     {% for meal in meals %}
-    <div class="grid-meal-label">{{ meal|capitalize }}</div>
+    <div class="grid-meal-label" data-meal="{{ meal }}">{{ meal|capitalize }}</div>
     {% for day in days %}
     {% set entry = slots.get((day, meal)) %}
     <div class="grid-cell"
@@ -39,6 +39,22 @@
 </div>
 
 <script>
+// Apply hidden meal rows from settings
+(function() {
+    try {
+        var s = JSON.parse(localStorage.getItem('appSettings') || '{}');
+        var visible = s.visibleMeals || ['breakfast', 'lunch', 'dinner'];
+        ['breakfast', 'lunch', 'dinner'].forEach(function(meal) {
+            if (!visible.includes(meal)) {
+                document.querySelector('.grid-meal-label[data-meal="' + meal + '"]').style.display = 'none';
+                document.querySelectorAll('.grid-cell[data-meal="' + meal + '"]').forEach(function(el) {
+                    el.style.display = 'none';
+                });
+            }
+        });
+    } catch(e) {}
+}());
+
 const PLAN_ID = {{ plan.id }};
 let recipesCache = null;
 

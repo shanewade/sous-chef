@@ -1,0 +1,231 @@
+{% extends "base.html" %}
+
+{% block title %}Settings — Meal Planner{% endblock %}
+
+{% block content %}
+<h1 class="page-title">Settings</h1>
+
+<!-- ── Colour Theme ──────────────────────────────────────────────────────── -->
+<section class="settings-section">
+    <h2>Colour Theme</h2>
+    <div class="theme-grid" id="theme-grid">
+        <button class="theme-swatch" data-theme="default">
+            <span class="swatch-circle" style="background:#3b82f6;"></span>
+            Default
+        </button>
+        <button class="theme-swatch" data-theme="forest">
+            <span class="swatch-circle" style="background:#2d6a4f;"></span>
+            Forest
+        </button>
+        <button class="theme-swatch" data-theme="sunset">
+            <span class="swatch-circle" style="background:#c0522b;"></span>
+            Sunset
+        </button>
+        <button class="theme-swatch" data-theme="ocean">
+            <span class="swatch-circle" style="background:#0e7490;"></span>
+            Ocean
+        </button>
+        <button class="theme-swatch" data-theme="lavender">
+            <span class="swatch-circle" style="background:#7c3aed;"></span>
+            Lavender
+        </button>
+        <button class="theme-swatch" data-theme="slate">
+            <span class="swatch-circle" style="background:#475569;"></span>
+            Slate
+        </button>
+        <button class="theme-swatch" data-theme="rose">
+            <span class="swatch-circle" style="background:#be185d;"></span>
+            Rose
+        </button>
+        <button class="theme-swatch" data-theme="espresso">
+            <span class="swatch-circle" style="background:#92400e;"></span>
+            Espresso
+        </button>
+        <button class="theme-swatch" data-theme="mint">
+            <span class="swatch-circle" style="background:#059669;"></span>
+            Mint
+        </button>
+        <button class="theme-swatch" data-theme="midnight">
+            <span class="swatch-circle" style="background:#0f172a; border:1px solid #334155;"></span>
+            Midnight
+        </button>
+    </div>
+</section>
+
+<!-- ── Unit System ───────────────────────────────────────────────────────── -->
+<section class="settings-section">
+    <h2>Unit System</h2>
+    <div class="unit-toggle settings-toggle" id="unit-toggle">
+        <button class="unit-btn" data-system="us">US</button>
+        <button class="unit-btn" data-system="metric">Metric</button>
+    </div>
+    <p class="settings-hint">Applied to ingredient quantities on recipe pages.</p>
+</section>
+
+<!-- ── Default Servings ──────────────────────────────────────────────────── -->
+<section class="settings-section">
+    <h2>Default Servings</h2>
+    <input type="number" id="default-servings" class="servings-input"
+           min="1" max="20" step="1">
+    <p class="settings-hint">Pre-fills the Servings field on new recipes.</p>
+</section>
+
+<!-- ── Meal Plan View ────────────────────────────────────────────────────── -->
+<section class="settings-section">
+    <h2>Meal Plan View</h2>
+    <ul class="meal-check-list">
+        <li><label><input type="checkbox" id="meal-breakfast" value="breakfast"> Breakfast</label></li>
+        <li><label><input type="checkbox" id="meal-lunch" value="lunch"> Lunch</label></li>
+        <li><label><input type="checkbox" id="meal-dinner" value="dinner"> Dinner</label></li>
+    </ul>
+    <p class="settings-hint">Unchecked meal types are hidden on the Meal Plan grid.</p>
+</section>
+
+<!-- ── Shopping List Category Order ─────────────────────────────────────── -->
+<section class="settings-section">
+    <h2>Shopping List Category Order</h2>
+    <ul class="category-order-list" id="category-order-list">
+        <!-- populated by JS -->
+    </ul>
+    <p class="settings-hint">Drag order determines how categories appear on your shopping list.</p>
+</section>
+
+<!-- ── Reset ─────────────────────────────────────────────────────────────── -->
+<section class="settings-section">
+    <h2>Reset</h2>
+    <button class="btn btn-secondary" id="reset-btn">Reset to Defaults</button>
+    <p class="settings-hint" style="margin-top:0.5rem;">Clears all settings and restores the defaults.</p>
+</section>
+
+<script>
+(function () {
+    var DEFAULTS = {
+        theme: 'default',
+        unitSystem: 'us',
+        defaultServings: 4,
+        visibleMeals: ['breakfast', 'lunch', 'dinner'],
+        categoryOrder: ['Produce', 'Dairy & Eggs', 'Meat & Seafood', 'Grains & Bread', 'Pantry'],
+    };
+
+    function getSettings() {
+        try { return Object.assign({}, DEFAULTS, JSON.parse(localStorage.getItem('appSettings') || '{}')); }
+        catch(e) { return Object.assign({}, DEFAULTS); }
+    }
+
+    function saveSettings(s) {
+        localStorage.setItem('appSettings', JSON.stringify(s));
+    }
+
+    function saveSetting(key, value) {
+        var s = getSettings();
+        s[key] = value;
+        saveSettings(s);
+    }
+
+    var settings = getSettings();
+
+    // ── Theme swatches ────────────────────────────────────────────────────
+    function applyTheme(theme) {
+        if (theme === 'default') {
+            document.documentElement.removeAttribute('data-theme');
+        } else {
+            document.documentElement.setAttribute('data-theme', theme);
+        }
+        document.querySelectorAll('.theme-swatch').forEach(function(btn) {
+            btn.classList.toggle('active', btn.dataset.theme === theme);
+        });
+    }
+
+    applyTheme(settings.theme);
+
+    document.getElementById('theme-grid').addEventListener('click', function(e) {
+        var btn = e.target.closest('.theme-swatch');
+        if (!btn) return;
+        var theme = btn.dataset.theme;
+        saveSetting('theme', theme);
+        applyTheme(theme);
+    });
+
+    // ── Unit system toggle ────────────────────────────────────────────────
+    function applyUnit(system) {
+        document.querySelectorAll('#unit-toggle .unit-btn').forEach(function(btn) {
+            btn.classList.toggle('active', btn.dataset.system === system);
+        });
+    }
+
+    applyUnit(settings.unitSystem);
+
+    document.getElementById('unit-toggle').addEventListener('click', function(e) {
+        var btn = e.target.closest('.unit-btn');
+        if (!btn) return;
+        saveSetting('unitSystem', btn.dataset.system);
+        applyUnit(btn.dataset.system);
+    });
+
+    // ── Default servings ──────────────────────────────────────────────────
+    var servingsInput = document.getElementById('default-servings');
+    servingsInput.value = settings.defaultServings;
+    servingsInput.addEventListener('change', function() {
+        var v = Math.max(1, Math.min(20, parseInt(this.value, 10) || 4));
+        this.value = v;
+        saveSetting('defaultServings', v);
+    });
+
+    // ── Meal plan visibility ──────────────────────────────────────────────
+    ['breakfast', 'lunch', 'dinner'].forEach(function(meal) {
+        var cb = document.getElementById('meal-' + meal);
+        cb.checked = settings.visibleMeals.includes(meal);
+        cb.addEventListener('change', function() {
+            var s = getSettings();
+            if (this.checked) {
+                if (!s.visibleMeals.includes(meal)) s.visibleMeals.push(meal);
+            } else {
+                s.visibleMeals = s.visibleMeals.filter(function(m) { return m !== meal; });
+            }
+            saveSettings(s);
+        });
+    });
+
+    // ── Category order ────────────────────────────────────────────────────
+    function renderCategoryList() {
+        var list = document.getElementById('category-order-list');
+        var s = getSettings();
+        list.innerHTML = '';
+        s.categoryOrder.forEach(function(cat, i) {
+            var li = document.createElement('li');
+            li.className = 'category-order-item';
+            li.innerHTML =
+                '<span>' + cat + '</span>' +
+                '<div class="category-order-btns">' +
+                '<button class="category-order-btn" data-dir="up" data-idx="' + i + '" ' + (i === 0 ? 'disabled' : '') + '>↑</button>' +
+                '<button class="category-order-btn" data-dir="down" data-idx="' + i + '" ' + (i === s.categoryOrder.length - 1 ? 'disabled' : '') + '>↓</button>' +
+                '</div>';
+            list.appendChild(li);
+        });
+    }
+
+    renderCategoryList();
+
+    document.getElementById('category-order-list').addEventListener('click', function(e) {
+        var btn = e.target.closest('.category-order-btn');
+        if (!btn || btn.disabled) return;
+        var idx = parseInt(btn.dataset.idx, 10);
+        var dir = btn.dataset.dir;
+        var s = getSettings();
+        var other = dir === 'up' ? idx - 1 : idx + 1;
+        var tmp = s.categoryOrder[idx];
+        s.categoryOrder[idx] = s.categoryOrder[other];
+        s.categoryOrder[other] = tmp;
+        saveSettings(s);
+        settings = s;
+        renderCategoryList();
+    });
+
+    // ── Reset ─────────────────────────────────────────────────────────────
+    document.getElementById('reset-btn').addEventListener('click', function() {
+        localStorage.removeItem('appSettings');
+        location.reload();
+    });
+}());
+</script>
+{% endblock %}
