@@ -1,4 +1,6 @@
 import json
+from unittest.mock import patch
+from recipe_scraper import ScraperError
 
 
 def post_recipe(client, **kwargs):
@@ -147,3 +149,62 @@ class TestDeleteRecipe:
         res = client.delete("/api/recipes/999")
         assert res.status_code == 404
         assert res.get_json() == {"error": "Recipe not found"}
+
+
+class TestImportRecipeUrl:
+    def _post(self, client, body):
+        return client.post(
+            "/api/recipes/import-url",
+            data=json.dumps(body),
+            content_type="application/json",
+        )
+
+    def test_missing_url_returns_400(self, client):
+        res = self._post(client, {})
+        assert res.status_code == 400
+        assert res.get_json()["error"] == "url is required"
+
+    def test_empty_url_returns_400(self, client):
+        res = self._post(client, {"url": "  "})
+        assert res.status_code == 400
+
+    def test_scraper_error_returns_422(self, client):
+        with patch("routes.api.scrape_recipe", side_effect=ScraperError("timed out")):
+            res = self._post(client, {"url": "http://example.com"})
+        assert res.status_code == 422
+        assert "timed out" in res.get_json()["error"]
+
+    def test_returns_recipe_data_on_success(self, client):
+        fake = {
+            "title": "Test Soup",
+            "description": "A nice soup.",
+            "ingredients_text": "1 onion\n2 cups broth",
+            "steps": "Chop and simmer.",
+            "cook_time_minutes": 25,
+            "servings": 4,
+            "tags": ["quick", "vegetarian"],
+            "warnings": [],
+        }
+        with patch("routes.api.scrape_recipe", return_value=fake):
+            res = self._post(client, {"url": "http://example.com/soup"})
+        assert res.status_code == 200
+        body = res.get_json()
+        assert body["title"] == "Test Soup"
+        assert body["cook_time_minutes"] == 25
+        assert "quick" in body["tags"]
+
+    def test_partial_result_with_warnings_returns_200(self, client):
+        fake = {
+            "title": "Partial Recipe",
+            "description": None,
+            "ingredients_text": None,
+            "steps": None,
+            "cook_time_minutes": None,
+            "servings": None,
+            "tags": [],
+            "warnings": ["Could not find ingredients.", "Could not find steps."],
+        }
+        with patch("routes.api.scrape_recipe", return_value=fake):
+            res = self._post(client, {"url": "http://example.com/partial"})
+        assert res.status_code == 200
+        assert len(res.get_json()["warnings"]) == 2

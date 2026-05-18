@@ -6,6 +6,13 @@
 <a class="back-link" href="/recipes">&larr; All Recipes</a>
 <h1 class="page-title" style="margin-top: 0.5rem">New Recipe</h1>
 
+<div class="import-row">
+    <input type="url" id="import-url" class="import-url-input"
+           placeholder="Paste a recipe URL to auto-fill the form…" autocomplete="off">
+    <button type="button" id="import-btn" class="btn btn-secondary">Import</button>
+</div>
+<div id="import-status" class="import-status hidden"></div>
+
 <form class="recipe-form" id="recipe-form" action="/recipes/new" method="post">
     {{ form.hidden_tag() }}
 
@@ -101,6 +108,11 @@
         }
     }
 
+    function setTags(newTags) {
+        tags = newTags.slice();
+        renderChips();
+    }
+
     var rawInput = document.getElementById('tag-raw-input');
 
     rawInput.addEventListener('keydown', function (e) {
@@ -131,6 +143,72 @@
             rawInput.value = '';
         }
         hiddenInput.value = tags.join(',');
+    });
+
+    // ── URL import ────────────────────────────────────────────────────────────
+    var importBtn = document.getElementById('import-btn');
+    var importUrlInput = document.getElementById('import-url');
+    var importStatus = document.getElementById('import-status');
+
+    function showStatus(message, type) {
+        importStatus.textContent = message;
+        importStatus.className = 'import-status ' + type;
+    }
+
+    importBtn.addEventListener('click', function () {
+        var url = importUrlInput.value.trim();
+        if (!url) {
+            showStatus('Please enter a URL first.', 'error');
+            return;
+        }
+
+        importBtn.disabled = true;
+        importBtn.textContent = 'Importing…';
+        importStatus.className = 'import-status hidden';
+
+        fetch('/api/recipes/import-url', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url: url }),
+        })
+        .then(function (res) { return res.json().then(function (d) { return { ok: res.ok, data: d }; }); })
+        .then(function (r) {
+            if (!r.ok) {
+                showStatus(r.data.error || 'Could not import — please fill in the form manually.', 'error');
+                return;
+            }
+            var d = r.data;
+            if (d.title)            document.getElementById('title').value = d.title;
+            if (d.description)      document.getElementById('description').value = d.description;
+            if (d.cook_time_minutes) document.getElementById('cook_time_minutes').value = d.cook_time_minutes;
+            if (d.servings)         document.getElementById('servings').value = d.servings;
+            if (d.ingredients_text) document.getElementById('ingredients_text').value = d.ingredients_text;
+            if (d.steps)            document.getElementById('steps').value = d.steps;
+            if (d.tags && d.tags.length) setTags(d.tags);
+
+            var domain = '';
+            try { domain = new URL(url).hostname.replace(/^www\./, ''); } catch (e) {}
+            var msg = 'Imported from ' + (domain || 'URL') + '.';
+            if (d.warnings && d.warnings.length) {
+                msg += ' Note: ' + d.warnings.join(' ');
+            }
+            showStatus(msg, 'success');
+        })
+        .catch(function () {
+            showStatus('Could not import — check the URL and try again.', 'error');
+        })
+        .finally(function () {
+            importBtn.disabled = false;
+            importBtn.textContent = 'Import';
+        });
+    });
+
+    // Allow pressing Enter in the URL input to trigger import
+    importUrlInput.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            importBtn.click();
+        }
     });
 
     renderChips();
