@@ -116,8 +116,13 @@
 
     function parseQty(s) {
         s = s.trim();
+        // "1 and 1/2"
+        var mixedAnd = s.match(/^(\d+)\s+and\s+(\d+)\/(\d+)$/);
+        if (mixedAnd) return +mixedAnd[1] + +mixedAnd[2] / +mixedAnd[3];
+        // "1 1/2"
         var mixed = s.match(/^(\d+)\s+(\d+)\/(\d+)$/);
         if (mixed) return +mixed[1] + +mixed[2] / +mixed[3];
+        // "1/2"
         var frac = s.match(/^(\d+)\/(\d+)$/);
         if (frac) return +frac[1] / +frac[2];
         return parseFloat(s) || 0;
@@ -165,7 +170,7 @@
     // Regex: captures qty (plain, fraction, or mixed) + optional space + unit word
     // Handles both "2 cups" and "100g" (no space)
     var UNIT_PAT = new RegExp(
-        '(\\d+(?:\\s+\\d+\\/\\d+|\\/\\d+|\\.\\d+)?)' +
+        '(\\d+(?:\\s+and\\s+\\d+\\/\\d+|\\s+\\d+\\/\\d+|\\/\\d+|\\.\\d+)?)' +
         '\\s*' +
         '(fl\\.?\\s*oz|teaspoons?|tablespoons?|tsps?|tbsps?|cups?|ounces?|pounds?|lbs?|sticks?|oz|lb)' +
         '(?=[\\s,.]|$)',
