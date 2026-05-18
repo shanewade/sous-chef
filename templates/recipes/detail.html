@@ -30,8 +30,14 @@
 <div class="detail-body">
     {% if recipe.ingredients_text %}
     <section class="detail-section">
-        <h2>Ingredients</h2>
-        <ul class="ingredient-list">
+        <div class="section-header">
+            <h2>Ingredients</h2>
+            <div class="unit-toggle" id="unit-toggle">
+                <button class="unit-btn" data-system="us">US</button>
+                <button class="unit-btn" data-system="metric">Metric</button>
+            </div>
+        </div>
+        <ul class="ingredient-list" id="ingredient-list">
             {% for line in recipe.ingredients_text.splitlines() %}
             {% if line.strip() %}
             <li>{{ line.strip() }}</li>
@@ -44,7 +50,7 @@
     {% if recipe.steps %}
     <section class="detail-section">
         <h2>Steps</h2>
-        <ol class="step-list">
+        <ol class="step-list" id="step-list">
             {% for line in recipe.steps.splitlines() %}
             {% if line.strip() %}
             <li>{{ line.strip() }}</li>
@@ -68,28 +74,162 @@
 
 <script>
 (function () {
+    // ── Delete modal ──────────────────────────────────────────────────────────
     var modal = document.getElementById('delete-modal');
-
     document.getElementById('delete-btn').addEventListener('click', function () {
         modal.classList.remove('hidden');
     });
-
     document.getElementById('cancel-delete').addEventListener('click', function () {
         modal.classList.add('hidden');
     });
-
     modal.addEventListener('click', function (e) {
-        if (e.target === modal) {
-            modal.classList.add('hidden');
-        }
+        if (e.target === modal) modal.classList.add('hidden');
     });
-
     document.getElementById('confirm-delete').addEventListener('click', async function () {
         this.disabled = true;
         this.textContent = 'Deleting…';
         await fetch('/api/recipes/{{ recipe.id }}', { method: 'DELETE' });
         window.location.href = '/recipes';
     });
+
+    // ── Unit conversion ───────────────────────────────────────────────────────
+    var PREF_KEY = 'unitSystem';
+
+    // US → ml conversion factors
+    var TO_ML = { tsp: 5, tbsp: 15, cup: 240, 'fl oz': 30 };
+    // US → g conversion factors
+    var TO_G  = { oz: 28.35, lb: 453.6, stick: 113.4 };
+
+    // Aliases → canonical unit name
+    var ALIASES = {
+        teaspoon: 'tsp', teaspoons: 'tsp',
+        tablespoon: 'tbsp', tablespoons: 'tbsp',
+        cups: 'cup',
+        ounce: 'oz', ounces: 'oz',
+        pound: 'lb', pounds: 'lb', lbs: 'lb',
+        sticks: 'stick',
+    };
+
+    function canonical(u) {
+        return ALIASES[u.toLowerCase()] || u.toLowerCase();
+    }
+
+    function parseQty(s) {
+        s = s.trim();
+        var mixed = s.match(/^(\d+)\s+(\d+)\/(\d+)$/);
+        if (mixed) return +mixed[1] + +mixed[2] / +mixed[3];
+        var frac = s.match(/^(\d+)\/(\d+)$/);
+        if (frac) return +frac[1] / +frac[2];
+        return parseFloat(s) || 0;
+    }
+
+    // Nice fraction symbols for US display
+    var FRAC_SYMS = [[0.25,'¼'],[0.5,'½'],[0.75,'¾'],[1/3,'⅓'],[2/3,'⅔']];
+    function formatUS(qty, unit) {
+        var whole = Math.floor(qty);
+        var rem = qty - whole;
+        var sym = '';
+        for (var i = 0; i < FRAC_SYMS.length; i++) {
+            if (Math.abs(rem - FRAC_SYMS[i][0]) < 0.04) { sym = FRAC_SYMS[i][1]; break; }
+        }
+        var qStr = sym ? ((whole ? whole + ' ' : '') + sym) : (Math.abs(rem) < 0.01 ? String(whole) : qty.toFixed(1));
+        return qStr + ' ' + unit;
+    }
+
+    function roundNice(n) {
+        if (n >= 100) return Math.round(n / 5) * 5;
+        if (n >= 10)  return Math.round(n);
+        // Round to nearest quarter for small amounts
+        return Math.round(n * 4) / 4;
+    }
+
+    function formatMetric(ml_or_g, isWeight) {
+        if (isWeight) {
+            var g = ml_or_g;
+            if (g >= 1000) return (Math.round(g / 100) / 10) + ' kg';
+            return Math.round(g) + ' g';
+        } else {
+            var ml = ml_or_g;
+            if (ml >= 1000) return (Math.round(ml / 100) / 10) + ' l';
+            return roundNice(ml) + ' ml';
+        }
+    }
+
+    function convertIngredient(qty, unit) {
+        var u = canonical(unit);
+        if (TO_ML[u] !== undefined) return formatMetric(qty * TO_ML[u], false);
+        if (TO_G[u]  !== undefined) return formatMetric(qty * TO_G[u],  true);
+        return null;  // not convertible
+    }
+
+    // Regex: captures qty (plain, fraction, or mixed) + optional space + unit word
+    // Handles both "2 cups" and "100g" (no space)
+    var UNIT_PAT = new RegExp(
+        '(\\d+(?:\\s+\\d+\\/\\d+|\\/\\d+|\\.\\d+)?)' +
+        '\\s*' +
+        '(fl\\.?\\s*oz|teaspoons?|tablespoons?|tsps?|tbsps?|cups?|ounces?|pounds?|lbs?|sticks?|oz|lb)' +
+        '(?=[\\s,.]|$)',
+        'gi'
+    );
+
+    // Temperature: matches "350°F" or "350 °F" or "350F" at word boundary
+    var TEMP_PAT = /(\d+)\s*°?\s*F\b/g;
+
+    function annotateIngredients() {
+        var items = document.querySelectorAll('#ingredient-list li');
+        items.forEach(function (li) {
+            var html = li.textContent;
+            var annotated = html.replace(UNIT_PAT, function (match, qtyStr, unitStr) {
+                var qty = parseQty(qtyStr);
+                var unit = canonical(unitStr);
+                var usText = formatUS(qty, unitStr.trim());
+                var metricText = convertIngredient(qty, unitStr);
+                if (!metricText) return match; // not convertible — leave as-is
+                return '<span class="unit-val" data-us="' + usText + '" data-metric="' + metricText + '">' + match + '</span>';
+            });
+            li.innerHTML = annotated;
+        });
+    }
+
+    function annotateSteps() {
+        var items = document.querySelectorAll('#step-list li');
+        if (!items.length) return;
+        items.forEach(function (li) {
+            var html = li.textContent;
+            var annotated = html.replace(TEMP_PAT, function (match, fStr) {
+                var f = parseInt(fStr, 10);
+                var c = Math.round((f - 32) * 5 / 9);
+                return '<span class="unit-val" data-us="' + f + '°F" data-metric="' + c + '°C (' + f + '°F)">' + match + '</span>';
+            });
+            li.innerHTML = annotated;
+        });
+    }
+
+    function applySystem(system) {
+        document.querySelectorAll('.unit-val').forEach(function (span) {
+            span.textContent = span.dataset[system] || span.dataset.us;
+        });
+        document.querySelectorAll('.unit-btn').forEach(function (btn) {
+            btn.classList.toggle('active', btn.dataset.system === system);
+        });
+    }
+
+    var toggle = document.getElementById('unit-toggle');
+    if (toggle) {
+        annotateIngredients();
+        annotateSteps();
+
+        var current = localStorage.getItem(PREF_KEY) || 'us';
+        applySystem(current);
+
+        toggle.addEventListener('click', function (e) {
+            var btn = e.target.closest('.unit-btn');
+            if (!btn) return;
+            current = btn.dataset.system;
+            localStorage.setItem(PREF_KEY, current);
+            applySystem(current);
+        });
+    }
 }());
 </script>
 {% endblock %}
