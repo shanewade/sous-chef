@@ -170,22 +170,34 @@
         return null;
     }
 
+    // Matches space-separated units — US and metric
     var UNIT_PAT = new RegExp(
         '(\\d+(?:\\s+and\\s+\\d+\\/\\d+|\\s+\\d+\\/\\d+|\\/\\d+|\\.\\d+)?)' +
-        '\\s*' +
-        '(fl\\.?\\s*oz|teaspoons?|tablespoons?|tsps?|tbsps?|cups?|ounces?|pounds?|lbs?|sticks?|oz|lb)' +
+        '\\s+' +
+        '(fl\\.?\\s*oz|teaspoons?|tablespoons?|tsps?|tbsps?|cups?|ounces?|pounds?|lbs?|sticks?|oz|lb|kg|ml|l|g)' +
         '(?=[\\s,.]|$)',
         'gi'
     );
     var TEMP_PAT = /(\d+)\s*°?\s*F\b/g;
 
-    // Annotation: store raw base qty + canonical unit as data attributes
+    // Metric units that should be scaled in-system rather than converted
+    var METRIC_UNITS = { g: true, kg: true, ml: true, l: true };
+
+    function scaleMetric(qty, unit) {
+        // Convert to base (g or ml), scale is already applied to qty
+        if (unit === 'kg') return formatMetric(qty * 1000, true);
+        if (unit === 'l')  return formatMetric(qty * 1000, false);
+        return formatMetric(qty, unit === 'g');
+    }
+
+    // Annotation: store raw base qty + canonical unit as data attributes.
+    // Pre-normalises no-space metric ("400g" → "400 g") so the regex can match.
     function annotateIngredients() {
         document.querySelectorAll('#ingredient-list li').forEach(function(li) {
-            li.innerHTML = li.textContent.replace(UNIT_PAT, function(match, qtyStr, unitStr) {
+            var text = li.textContent.replace(/(\d)(g|kg|ml|l)\b/gi, '$1 $2');
+            li.innerHTML = text.replace(UNIT_PAT, function(match, qtyStr, unitStr) {
                 var qty = parseQty(qtyStr);
-                var unit = canonical(unitStr);
-                if (!convertIngredient(qty, unit)) return match; // not convertible
+                var unit = canonical(unitStr.trim());
                 return '<span class="unit-val" data-qty="' + qty + '" data-unit="' + unit + '" data-orig-unit="' + unitStr.trim() + '">' + match + '</span>';
             });
         });
@@ -206,9 +218,18 @@
             var qty = parseFloat(span.dataset.qty) * scale;
             var unit = span.dataset.unit;
             var origUnit = span.dataset.origUnit || unit;
-            span.textContent = (system === 'metric')
-                ? (convertIngredient(qty, unit) || formatUS(qty, origUnit))
-                : formatUS(qty, origUnit);
+            var text;
+            if (METRIC_UNITS[unit]) {
+                // Metric ingredient — scale the value, keep metric units
+                text = scaleMetric(qty, unit);
+            } else if (system === 'metric') {
+                // US ingredient in metric mode — convert
+                text = convertIngredient(qty, unit) || formatUS(qty, origUnit);
+            } else {
+                // US ingredient in US mode
+                text = formatUS(qty, origUnit);
+            }
+            span.textContent = text;
         });
         document.querySelectorAll('.temp-val').forEach(function(span) {
             span.textContent = (system === 'metric')
