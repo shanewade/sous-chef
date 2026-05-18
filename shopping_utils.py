@@ -23,10 +23,140 @@ _UNITS = {
     'pkg': 'pkg', 'package': 'pkg', 'packages': 'pkg',
 }
 
+# ── Unit conversion ────────────────────────────────────────────────────────────
+# Volume: base unit is tsp
+_VOLUME_TO_TSP = {
+    'tsp':  1.0,
+    'tbsp': 3.0,
+    'cup':  48.0,
+    'ml':   1.0 / 4.92892,
+    'l':    1000.0 / 4.92892,
+    'stick': 24.0,   # 1 stick butter = 8 tbsp = 24 tsp
+}
+
+# Weight: base unit is g
+_WEIGHT_TO_G = {
+    'g':  1.0,
+    'kg': 1000.0,
+    'oz': 28.3495,
+    'lb': 453.592,
+}
+
+def _unit_family(unit):
+    """Return 'volume', 'weight', or None for count/unknown units."""
+    if unit in _VOLUME_TO_TSP:
+        return 'volume'
+    if unit in _WEIGHT_TO_G:
+        return 'weight'
+    return None
+
+
+def _to_base(qty, unit):
+    """Convert qty+unit to (base_qty, family). Returns (None, None) if not convertible."""
+    if unit in _VOLUME_TO_TSP:
+        return qty * _VOLUME_TO_TSP[unit], 'volume'
+    if unit in _WEIGHT_TO_G:
+        return qty * _WEIGHT_TO_G[unit], 'weight'
+    return None, None
+
+
+def _from_base(base_qty, family, source_units):
+    """Convert base quantity back to a human-friendly (qty, unit) pair."""
+    if family == 'volume':
+        use_metric = (
+            any(u in ('ml', 'l') for u in source_units)
+            and not any(u in ('tsp', 'tbsp', 'cup', 'stick') for u in source_units)
+        )
+        if use_metric:
+            ml = round(base_qty * 4.92892)   # round to nearest ml
+            return (ml / 1000, 'l') if ml >= 1000 else (ml, 'ml')
+        if base_qty >= 48:
+            return base_qty / 48, 'cup'
+        if base_qty >= 3:
+            return base_qty / 3, 'tbsp'
+        return base_qty, 'tsp'
+    else:  # weight
+        use_metric = (
+            any(u in ('g', 'kg') for u in source_units)
+            and not any(u in ('oz', 'lb') for u in source_units)
+        )
+        if use_metric:
+            g = round(base_qty)              # round to nearest gram
+            return (g / 1000, 'kg') if g >= 1000 else (g, 'g')
+        oz = base_qty / 28.3495
+        return (oz / 16, 'lb') if oz >= 16 else (oz, 'oz')
+
+
+# ── Name normalisation ─────────────────────────────────────────────────────────
+_MODIFIERS = frozenset({
+    'unsalted', 'salted', 'softened', 'melted', 'chopped', 'diced', 'minced',
+    'sliced', 'grated', 'shredded', 'crushed', 'peeled', 'trimmed', 'deveined',
+    'fresh', 'dried', 'frozen', 'canned', 'cooked', 'raw', 'ripe',
+    'large', 'medium', 'small', 'extra',
+    'whole', 'halved', 'quartered',
+    'roughly', 'finely', 'thinly', 'lightly', 'loosely', 'packed', 'freshly',
+    'boneless', 'skinless', 'lean', 'ground',
+    'room', 'temperature', 'cold', 'warm',
+    'heaping', 'level', 'about',
+})
+
+# Common name equivalences applied after modifier stripping.
+_NAME_ALIASES = {
+    'black pepper': 'pepper',
+    'ground pepper': 'pepper',
+    'white pepper': 'pepper',
+}
+
+# Qualifiers stripped from the end of ingredient names before grouping.
+_QUALIFIERS = re.compile(
+    r'\s*,?\s*\b(to taste|as needed|as required|to serve|for serving|optional)\b.*$',
+    re.IGNORECASE,
+)
+
+
+def _normalize_name(name):
+    """Return a canonical grouping key for an ingredient name.
+
+    Strips qualifiers ('to taste', etc.), parenthetical notes,
+    comma-separated modifiers, and known modifier words so that e.g.
+    'unsalted butter' and 'butter, softened' both resolve to 'butter'.
+    """
+    name = _QUALIFIERS.sub('', name).strip()  # drop "to taste", "as needed", etc.
+    name = re.sub(r'\(.*?\)', '', name)        # drop "(optional)", "(about 200g)", etc.
+    name = name.split(',')[0]                  # "butter, softened" → "butter"
+    words = [w for w in name.split() if w not in _MODIFIERS]
+    result = ' '.join(words).strip() or name.strip()
+    return _NAME_ALIASES.get(result, result)
+
+
+# Qualifiers to strip from raw names before splitting compound ingredients.
+def _expand_ingredient(qty, unit, name):
+    """Return a list of (qty, unit, name) tuples from a single parsed line.
+
+    Strips end-of-line qualifiers ('to taste', etc.) and splits compound
+    no-quantity ingredients joined by 'and' (e.g. 'salt and pepper to taste'
+    becomes two entries: 'salt' and 'pepper').
+    """
+    name = _QUALIFIERS.sub('', name).strip().rstrip(',').strip()
+    if not name:
+        return []
+
+    # Only split compounds when there is no quantity — avoids splitting
+    # things like "bread and butter pudding" that have measured amounts.
+    if qty is None and unit is None and ' and ' in name:
+        parts = [p.strip() for p in name.split(' and ') if p.strip()]
+        if len(parts) > 1:
+            return [(None, None, p) for p in parts]
+
+    return [(qty, unit, name)]
+
+
+# ── Quantity / unit formatting ────────────────────────────────────────────────
 # (category, keywords) — first match wins.
 _CATEGORIES = [
     ('Produce',          ['lettuce', 'tomato', 'onion', 'garlic', 'carrot', 'potato',
-                          'pepper', 'celery', 'broccoli', 'spinach', 'mushroom', 'lemon',
+                          'bell pepper', 'capsicum', 'jalapeño', 'jalapeno',
+                          'celery', 'broccoli', 'spinach', 'mushroom', 'lemon',
                           'lime', 'orange', 'apple', 'avocado', 'zucchini', 'cucumber',
                           'kale', 'cabbage', 'ginger', 'parsley', 'cilantro', 'basil',
                           'thyme', 'rosemary', 'scallion', 'shallot', 'leek', 'herb',
@@ -42,7 +172,8 @@ _CATEGORIES = [
                           'couscous', 'barley', 'panko', 'breadcrumb', 'cracker']),
     ('Pantry',           ['oil', 'vinegar', 'soy sauce', 'fish sauce', 'broth', 'stock',
                           'tomato', 'coconut milk', 'honey', 'maple', 'sugar', 'salt',
-                          'pepper', 'cumin', 'paprika', 'oregano', 'cinnamon', 'turmeric',
+                          'pepper', 'black pepper', 'white pepper', 'red pepper',
+                          'cumin', 'paprika', 'oregano', 'cinnamon', 'turmeric',
                           'curry', 'chili', 'cayenne', 'nutmeg', 'vanilla', 'baking',
                           'mustard', 'ketchup', 'hot sauce', 'worcestershire']),
 ]
@@ -90,7 +221,7 @@ def parse_line(line):
         # word not a unit — treat as part of the name
         return qty, None, f"{word} {rest}".lower()
 
-    # qty + name only
+    # qty + name only (space-separated, no unit)
     m = re.match(r'^(\d[\d ./]*?)\s+(.+)$', line)
     if m:
         qty_s, rest = m.group(1).strip(), m.group(2).strip()
@@ -99,6 +230,19 @@ def parse_line(line):
         except (ValueError, ZeroDivisionError):
             qty = None
         return qty, None, rest.lower()
+
+    # qty+unit with no space, e.g. "100g flour", "500ml milk", "1kg chicken"
+    m = re.match(r'^(\d[\d./]*)\s*([a-zA-Z]+)\s+(.+)$', line)
+    if m:
+        qty_s, word, rest = m.group(1), m.group(2), m.group(3).strip()
+        unit = _UNITS.get(word.lower())
+        try:
+            qty = _parse_qty(qty_s)
+        except (ValueError, ZeroDivisionError):
+            qty = None
+        if unit:
+            return qty, unit, rest.lower()
+        return qty, None, f"{word} {rest}".lower()
 
     return None, None, line.lower()
 
@@ -130,8 +274,15 @@ def aggregate(recipes):
     Given an iterable of Recipe objects return a list of dicts:
       {ingredient, quantity, unit, category}
     sorted by category then ingredient name.
+
+    Ingredients with the same normalised name are merged across unit
+    families (volume or weight) using conversion to a common base unit.
+    Name modifiers (unsalted, chopped, softened, etc.) are stripped
+    before grouping so that e.g. 'butter' and 'unsalted butter' combine.
     """
-    totals = defaultdict(lambda: {'qty': None, 'unit': None})
+    # groups keyed by (normalised_name, family_or_exact_unit)
+    # each value: { base_qty, family, source_units, raw_names, unit }
+    groups = {}
 
     for recipe in recipes:
         if not recipe.ingredients_text:
@@ -141,21 +292,57 @@ def aggregate(recipes):
             if parsed is None:
                 continue
             qty, unit, name = parsed
-            if not name:
-                continue
-            bucket = totals[(name, unit or '')]
-            bucket['unit'] = unit
-            if qty is not None:
-                bucket['qty'] = (bucket['qty'] or 0) + qty
 
-    result = [
-        {
-            'ingredient': name,
-            'quantity': _fmt_qty(data['qty']),
-            'unit': data['unit'] or '',
-            'category': categorize(name),
-        }
-        for (name, _unit), data in totals.items()
-    ]
+            for qty, unit, name in _expand_ingredient(qty, unit, name):
+                norm = _normalize_name(name)
+                family = _unit_family(unit) if unit else None
+
+                # Group convertible units by family; count/no-unit by exact unit
+                group_key = (norm, family if family else unit)
+
+                if group_key not in groups:
+                    groups[group_key] = {
+                        'base_qty': None,
+                        'family': family,
+                        'source_units': set(),
+                        'raw_names': [],
+                        'unit': unit,
+                    }
+
+                g = groups[group_key]
+                g['raw_names'].append(name)
+
+                if qty is not None:
+                    if family:
+                        base, _ = _to_base(qty, unit)
+                        g['base_qty'] = (g['base_qty'] or 0.0) + base
+                        g['source_units'].add(unit)
+                    else:
+                        # Count unit (e.g. eggs, cloves) or no unit — sum directly
+                        g['base_qty'] = (g['base_qty'] or 0.0) + qty
+                        if unit:
+                            g['source_units'].add(unit)
+
+    result = []
+    for (norm, _), g in groups.items():
+        # Use the shortest raw name, with qualifiers stripped, as the display name
+        display_name = min(
+            (_QUALIFIERS.sub('', n).strip().rstrip(',').strip() for n in g['raw_names']),
+            key=len,
+        )
+
+        if g['family'] and g['base_qty'] is not None:
+            disp_qty, disp_unit = _from_base(g['base_qty'], g['family'], g['source_units'])
+        else:
+            disp_qty = g['base_qty']
+            disp_unit = g['unit']
+
+        result.append({
+            'ingredient': display_name,
+            'quantity': _fmt_qty(disp_qty),
+            'unit': disp_unit or '',
+            'category': categorize(display_name),
+        })
+
     result.sort(key=lambda x: (x['category'], x['ingredient']))
     return result
