@@ -4,7 +4,7 @@ with fallbacks to Open Graph meta tags.
 """
 import json
 import re
-import requests
+import cloudscraper
 from bs4 import BeautifulSoup
 
 
@@ -183,16 +183,23 @@ def scrape_recipe(url, timeout=8):
 
     Raises ScraperError on network failure or HTTP error.
     """
+    scraper = cloudscraper.create_scraper()
     try:
-        resp = requests.get(url, timeout=timeout, headers=_HEADERS)
+        resp = scraper.get(url, timeout=timeout, headers=_HEADERS)
         resp.raise_for_status()
-    except requests.exceptions.Timeout:
-        raise ScraperError("The request timed out — the site may be too slow to import from.")
-    except requests.exceptions.ConnectionError:
-        raise ScraperError("Could not connect to that URL — check the address and try again.")
-    except requests.exceptions.HTTPError as e:
-        raise ScraperError(f"The site returned an error ({e.response.status_code}).")
-    except requests.exceptions.RequestException:
+    except cloudscraper.exceptions.CloudflareChallengeError:
+        raise ScraperError("This site's bot protection could not be bypassed — try a different recipe URL.")
+    except Exception as e:
+        # Map common requests exceptions to user-friendly messages
+        import requests as req
+        if isinstance(e, req.exceptions.Timeout):
+            raise ScraperError("The request timed out — the site may be too slow to import from.")
+        if isinstance(e, req.exceptions.ConnectionError):
+            raise ScraperError("Could not connect to that URL — check the address and try again.")
+        if isinstance(e, req.exceptions.HTTPError):
+            raise ScraperError(f"The site returned an error ({e.response.status_code}).")
+        if isinstance(e, req.exceptions.RequestException):
+            raise ScraperError("Could not fetch that URL.")
         raise ScraperError("Could not fetch that URL.")
 
     soup = BeautifulSoup(resp.text, "html.parser")

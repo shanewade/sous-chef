@@ -4,6 +4,7 @@ Flask-Migrate
 Flask-WTF
 requests
 beautifulsoup4
+cloudscraper
 urllib3<2
 pytest
 pytest-flask
