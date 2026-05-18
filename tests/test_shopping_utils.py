@@ -186,6 +186,34 @@ class TestAggregate:
         assert categories == sorted(categories)
 
 
+class TestExpandIngredient:
+    def test_splits_salt_and_pepper(self):
+        from shopping_utils import _expand_ingredient
+        result = _expand_ingredient(None, None, "salt and pepper to taste")
+        assert result == [(None, None, "salt"), (None, None, "pepper")]
+
+    def test_splits_salt_and_black_pepper(self):
+        from shopping_utils import _expand_ingredient
+        result = _expand_ingredient(None, None, "salt and black pepper to taste")
+        assert result == [(None, None, "salt"), (None, None, "black pepper")]
+
+    def test_strips_to_taste_without_splitting(self):
+        from shopping_utils import _expand_ingredient
+        result = _expand_ingredient(None, None, "salt to taste")
+        assert result == [(None, None, "salt")]
+
+    def test_strips_as_needed(self):
+        from shopping_utils import _expand_ingredient
+        result = _expand_ingredient(None, None, "olive oil as needed")
+        assert result == [(None, None, "olive oil")]
+
+    def test_does_not_split_when_qty_present(self):
+        from shopping_utils import _expand_ingredient
+        # "bread and butter" with a quantity should stay together
+        result = _expand_ingredient(1.0, "cup", "bread and butter")
+        assert len(result) == 1
+
+
 class TestNormalizeName:
     def test_strips_comma_modifier(self):
         assert _normalize_name("butter, softened") == "butter"
@@ -278,6 +306,20 @@ class TestAggregateDedup:
         assert len(parmesan_items) == 1
         assert parmesan_items[0]['quantity'] == '110'
         assert parmesan_items[0]['unit'] == 'g'
+
+    def test_salt_and_pepper_variants_produce_two_items(self):
+        r1 = self.FakeRecipe("salt and black pepper to taste")
+        r2 = self.FakeRecipe("salt and pepper to taste")
+        result = aggregate([r1, r2])
+        names = [i['ingredient'] for i in result]
+        assert len(result) == 2
+        assert any('salt' in n for n in names)
+        assert any('pepper' in n for n in names)
+
+    def test_to_taste_stripped_from_display_name(self):
+        r = self.FakeRecipe("salt to taste")
+        result = aggregate([r])
+        assert result[0]['ingredient'] == 'salt'
 
     def test_metric_volume_stays_metric(self):
         r1 = self.FakeRecipe("200 ml milk")

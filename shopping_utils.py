@@ -94,24 +94,61 @@ _MODIFIERS = frozenset({
     'fresh', 'dried', 'frozen', 'canned', 'cooked', 'raw', 'ripe',
     'large', 'medium', 'small', 'extra',
     'whole', 'halved', 'quartered',
-    'roughly', 'finely', 'thinly', 'lightly', 'loosely', 'packed',
+    'roughly', 'finely', 'thinly', 'lightly', 'loosely', 'packed', 'freshly',
     'boneless', 'skinless', 'lean', 'ground',
     'room', 'temperature', 'cold', 'warm',
-    'heaping', 'level', 'about', 'and',
+    'heaping', 'level', 'about',
 })
+
+# Common name equivalences applied after modifier stripping.
+_NAME_ALIASES = {
+    'black pepper': 'pepper',
+    'ground pepper': 'pepper',
+    'white pepper': 'pepper',
+}
+
+# Qualifiers stripped from the end of ingredient names before grouping.
+_QUALIFIERS = re.compile(
+    r'\s*,?\s*\b(to taste|as needed|as required|to serve|for serving|optional)\b.*$',
+    re.IGNORECASE,
+)
 
 
 def _normalize_name(name):
     """Return a canonical grouping key for an ingredient name.
 
-    Strips parenthetical notes, comma-separated modifiers, and known
-    modifier words so that e.g. 'unsalted butter' and 'butter, softened'
-    both resolve to 'butter'.
+    Strips qualifiers ('to taste', etc.), parenthetical notes,
+    comma-separated modifiers, and known modifier words so that e.g.
+    'unsalted butter' and 'butter, softened' both resolve to 'butter'.
     """
-    name = re.sub(r'\(.*?\)', '', name)       # drop "(optional)", "(about 200g)", etc.
+    name = _QUALIFIERS.sub('', name).strip()  # drop "to taste", "as needed", etc.
+    name = re.sub(r'\(.*?\)', '', name)        # drop "(optional)", "(about 200g)", etc.
     name = name.split(',')[0]                  # "butter, softened" → "butter"
     words = [w for w in name.split() if w not in _MODIFIERS]
-    return ' '.join(words).strip() or name.strip()
+    result = ' '.join(words).strip() or name.strip()
+    return _NAME_ALIASES.get(result, result)
+
+
+# Qualifiers to strip from raw names before splitting compound ingredients.
+def _expand_ingredient(qty, unit, name):
+    """Return a list of (qty, unit, name) tuples from a single parsed line.
+
+    Strips end-of-line qualifiers ('to taste', etc.) and splits compound
+    no-quantity ingredients joined by 'and' (e.g. 'salt and pepper to taste'
+    becomes two entries: 'salt' and 'pepper').
+    """
+    name = _QUALIFIERS.sub('', name).strip().rstrip(',').strip()
+    if not name:
+        return []
+
+    # Only split compounds when there is no quantity — avoids splitting
+    # things like "bread and butter pudding" that have measured amounts.
+    if qty is None and unit is None and ' and ' in name:
+        parts = [p.strip() for p in name.split(' and ') if p.strip()]
+        if len(parts) > 1:
+            return [(None, None, p) for p in parts]
+
+    return [(qty, unit, name)]
 
 
 # ── Quantity / unit formatting ────────────────────────────────────────────────
@@ -256,39 +293,43 @@ def aggregate(recipes):
             if not name:
                 continue
 
-            norm = _normalize_name(name)
-            family = _unit_family(unit) if unit else None
+            for qty, unit, name in _expand_ingredient(qty, unit, name):
+                norm = _normalize_name(name)
+                family = _unit_family(unit) if unit else None
 
-            # Group convertible units by family; count/no-unit by exact unit
-            group_key = (norm, family if family else unit)
+                # Group convertible units by family; count/no-unit by exact unit
+                group_key = (norm, family if family else unit)
 
-            if group_key not in groups:
-                groups[group_key] = {
-                    'base_qty': None,
-                    'family': family,
-                    'source_units': set(),
-                    'raw_names': [],
-                    'unit': unit,
-                }
+                if group_key not in groups:
+                    groups[group_key] = {
+                        'base_qty': None,
+                        'family': family,
+                        'source_units': set(),
+                        'raw_names': [],
+                        'unit': unit,
+                    }
 
-            g = groups[group_key]
-            g['raw_names'].append(name)
+                g = groups[group_key]
+                g['raw_names'].append(name)
 
-            if qty is not None:
-                if family:
-                    base, _ = _to_base(qty, unit)
-                    g['base_qty'] = (g['base_qty'] or 0.0) + base
-                    g['source_units'].add(unit)
-                else:
-                    # Count unit (e.g. eggs, cloves) or no unit — sum directly
-                    g['base_qty'] = (g['base_qty'] or 0.0) + qty
-                    if unit:
+                if qty is not None:
+                    if family:
+                        base, _ = _to_base(qty, unit)
+                        g['base_qty'] = (g['base_qty'] or 0.0) + base
                         g['source_units'].add(unit)
+                    else:
+                        # Count unit (e.g. eggs, cloves) or no unit — sum directly
+                        g['base_qty'] = (g['base_qty'] or 0.0) + qty
+                        if unit:
+                            g['source_units'].add(unit)
 
     result = []
     for (norm, _), g in groups.items():
-        # Use the shortest raw name as the display name (most concise form)
-        display_name = min(g['raw_names'], key=len)
+        # Use the shortest raw name, with qualifiers stripped, as the display name
+        display_name = min(
+            (_QUALIFIERS.sub('', n).strip().rstrip(',').strip() for n in g['raw_names']),
+            key=len,
+        )
 
         if g['family'] and g['base_qty'] is not None:
             disp_qty, disp_unit = _from_base(g['base_qty'], g['family'], g['source_units'])
