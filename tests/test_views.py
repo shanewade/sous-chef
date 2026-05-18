@@ -3,9 +3,10 @@ from datetime import date, timedelta
 
 
 class TestIndex:
-    def test_returns_200(self, client):
+    def test_redirects_to_recipes(self, client):
         res = client.get("/")
-        assert res.status_code == 200
+        assert res.status_code == 302
+        assert res.headers["Location"] == "/recipes"
 
 
 def create_recipe(client, **kwargs):

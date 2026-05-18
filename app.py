@@ -1,4 +1,4 @@
-from flask import Flask, render_template, send_from_directory
+from flask import Flask, render_template, redirect, send_from_directory
 from extensions import db, migrate
 
 app = Flask(__name__)
@@ -20,7 +20,7 @@ app.register_blueprint(views)
 
 @app.route("/")
 def index():
-    return "<h1>Hello World</h1>"
+    return redirect("/recipes")
 
 @app.route("/favicon.ico")
 def favicon():
