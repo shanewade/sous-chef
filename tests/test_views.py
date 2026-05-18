@@ -94,6 +94,24 @@ class TestRecipesDetail:
         res = client.get(f"/recipes/{recipe_id}")
         assert f"/recipes/{recipe_id}/edit".encode() in res.data
 
+    def test_shows_delete_button(self, client):
+        recipe_id = create_recipe(client).get_json()["id"]
+        res = client.get(f"/recipes/{recipe_id}")
+        assert b'id="delete-btn"' in res.data
+
+    def test_shows_confirmation_modal(self, client):
+        recipe_id = create_recipe(client).get_json()["id"]
+        res = client.get(f"/recipes/{recipe_id}")
+        assert b'id="delete-modal"' in res.data
+        assert b'id="confirm-delete"' in res.data
+        assert b'id="cancel-delete"' in res.data
+
+    def test_modal_calls_delete_api(self, client):
+        recipe_id = create_recipe(client).get_json()["id"]
+        res = client.get(f"/recipes/{recipe_id}")
+        assert b"method: 'DELETE'" in res.data
+        assert f"/api/recipes/{recipe_id}".encode() in res.data
+
 
 class TestRecipesEdit:
     def test_returns_200_for_existing_recipe(self, client):
