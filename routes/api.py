@@ -1,6 +1,7 @@
 from flask import Blueprint, jsonify, request
 from extensions import db
 from models import Recipe, Tag
+from recipe_scraper import scrape_recipe, ScraperError
 
 api = Blueprint("api", __name__)
 
@@ -98,6 +99,19 @@ def update_recipe(id):
 
     db.session.commit()
     return jsonify(_recipe_dict(recipe))
+
+
+@api.route("/recipes/import-url", methods=["POST"])
+def import_recipe_url():
+    data = request.get_json(silent=True) or {}
+    url = (data.get("url") or "").strip()
+    if not url:
+        return jsonify({"error": "url is required"}), 400
+    try:
+        result = scrape_recipe(url)
+    except ScraperError as e:
+        return jsonify({"error": str(e)}), 422
+    return jsonify(result), 200
 
 
 @api.route("/recipes/<int:id>", methods=["DELETE"])
