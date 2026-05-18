@@ -317,6 +317,11 @@ class TestShoppingListView:
         assert b"flour" in res.data
         assert b"salt" in res.data
 
+    def test_metric_conversion_js_present(self, client):
+        res = client.get("/shopping-list")
+        assert b'unitSystem' in res.data
+        assert b'TO_ML' in res.data
+
     def test_shows_empty_state_when_plan_has_no_ingredients(self, client):
         recipe_id = create_recipe(client).get_json()["id"]
         plan_id = post_json(client, "/api/meal-plans", {
