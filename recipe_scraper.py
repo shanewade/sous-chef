@@ -55,15 +55,17 @@ def _extract_instructions(instructions):
     if not instructions:
         return None
     if isinstance(instructions, str):
-        return instructions.strip() or None
+        return _strip_html(instructions) or None
     steps = []
     for item in instructions:
         if isinstance(item, str):
-            steps.append(item.strip())
+            text = _strip_html(item)
         elif isinstance(item, dict):
-            text = item.get("text") or item.get("name") or ""
-            if text.strip():
-                steps.append(text.strip())
+            text = _strip_html(item.get("text") or item.get("name") or "")
+        else:
+            continue
+        if text:
+            steps.append(text)
     return "\n".join(steps) or None
 
 
@@ -196,7 +198,9 @@ def scrape_recipe(url, timeout=8):
         description = _strip_html(data.get("description"))
 
         ingredients = data.get("recipeIngredient") or []
-        ingredients_text = "\n".join(i.strip() for i in ingredients if i.strip()) or None
+        ingredients_text = "\n".join(
+            _strip_html(i) for i in ingredients if _strip_html(i)
+        ) or None
 
         steps = _extract_instructions(data.get("recipeInstructions"))
 

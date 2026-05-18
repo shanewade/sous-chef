@@ -93,6 +93,18 @@ class TestExtractInstructions:
     def test_empty_list(self):
         assert _extract_instructions([]) is None
 
+    def test_decodes_html_entities_in_steps(self):
+        steps = [{"@type": "HowToStep", "text": "Use an 8&#215;4-inch pan and don&#8217;t over-mix."}]
+        result = _extract_instructions(steps)
+        assert "×" in result
+        assert "’" in result  # right single quotation mark
+        assert "&#" not in result
+
+    def test_decodes_html_entities_in_string_step(self):
+        result = _extract_instructions("Bake at 350&#176;F.")
+        assert "°" in result
+        assert "&#" not in result
+
 
 # ── _extract_servings ─────────────────────────────────────────────────────────
 
