@@ -1,4 +1,4 @@
-from shopping_utils import parse_line, categorize, aggregate, _fmt_qty
+from shopping_utils import parse_line, categorize, aggregate, _fmt_qty, _normalize_name
 
 
 class TestParseLine:
@@ -172,3 +172,96 @@ class TestAggregate:
         result = aggregate([r])
         categories = [i['category'] for i in result]
         assert categories == sorted(categories)
+
+
+class TestNormalizeName:
+    def test_strips_comma_modifier(self):
+        assert _normalize_name("butter, softened") == "butter"
+
+    def test_strips_prefix_modifier(self):
+        assert _normalize_name("unsalted butter") == "butter"
+
+    def test_strips_parenthetical(self):
+        assert _normalize_name("chicken (about 500g)") == "chicken"
+
+    def test_leaves_plain_name_unchanged(self):
+        assert _normalize_name("olive oil") == "olive oil"
+
+    def test_multiple_modifiers(self):
+        assert _normalize_name("boneless skinless chicken breast") == "chicken breast"
+
+
+class TestAggregateDedup:
+    class FakeRecipe:
+        def __init__(self, ingredients_text):
+            self.ingredients_text = ingredients_text
+
+    def test_combines_different_volume_units(self):
+        r1 = self.FakeRecipe("2 tbsp butter")
+        r2 = self.FakeRecipe("1/4 cup butter")
+        result = aggregate([r1, r2])
+        butter = next(i for i in result if 'butter' in i['ingredient'])
+        # 2 tbsp = 6 tsp, 1/4 cup = 12 tsp → 18 tsp = 6 tbsp
+        assert butter['unit'] == 'tbsp'
+        assert butter['quantity'] == '6'
+
+    def test_combines_different_weight_units(self):
+        r1 = self.FakeRecipe("100 g chicken breast")
+        r2 = self.FakeRecipe("200 g chicken breast")
+        result = aggregate([r1, r2])
+        chicken = next(i for i in result if 'chicken' in i['ingredient'])
+        assert chicken['unit'] == 'g'
+        assert chicken['quantity'] == '300'
+
+    def test_normalises_modifier_words(self):
+        r1 = self.FakeRecipe("2 tbsp unsalted butter")
+        r2 = self.FakeRecipe("1 tbsp butter")
+        result = aggregate([r1, r2])
+        butter_items = [i for i in result if 'butter' in i['ingredient']]
+        assert len(butter_items) == 1
+        assert butter_items[0]['quantity'] == '3'
+
+    def test_comma_modifier_normalised(self):
+        r1 = self.FakeRecipe("2 tbsp butter, softened")
+        r2 = self.FakeRecipe("1 tbsp butter")
+        result = aggregate([r1, r2])
+        butter_items = [i for i in result if 'butter' in i['ingredient']]
+        assert len(butter_items) == 1
+
+    def test_display_name_uses_shortest_form(self):
+        r1 = self.FakeRecipe("2 tbsp unsalted butter")
+        r2 = self.FakeRecipe("1 tbsp butter")
+        result = aggregate([r1, r2])
+        butter = next(i for i in result if 'butter' in i['ingredient'])
+        assert butter['ingredient'] == 'butter'
+
+    def test_incompatible_units_kept_separate(self):
+        # cloves of garlic vs tbsp garlic powder — different families
+        r = self.FakeRecipe("3 cloves garlic\n1 tbsp garlic powder")
+        result = aggregate([r])
+        garlic_items = [i for i in result if 'garlic' in i['ingredient']]
+        assert len(garlic_items) == 2
+
+    def test_no_quantity_ingredient_appears_once(self):
+        r1 = self.FakeRecipe("salt to taste")
+        r2 = self.FakeRecipe("salt to taste")
+        result = aggregate([r1, r2])
+        salt_items = [i for i in result if 'salt' in i['ingredient']]
+        assert len(salt_items) == 1
+
+    def test_oz_to_lb_conversion(self):
+        r1 = self.FakeRecipe("8 oz chicken")
+        r2 = self.FakeRecipe("8 oz chicken")
+        result = aggregate([r1, r2])
+        chicken = next(i for i in result if 'chicken' in i['ingredient'])
+        # 16 oz = 1 lb
+        assert chicken['unit'] == 'lb'
+        assert chicken['quantity'] == '1'
+
+    def test_metric_volume_stays_metric(self):
+        r1 = self.FakeRecipe("200 ml milk")
+        r2 = self.FakeRecipe("100 ml milk")
+        result = aggregate([r1, r2])
+        milk = next(i for i in result if 'milk' in i['ingredient'])
+        assert milk['unit'] == 'ml'
+        assert milk['quantity'] == '300'
