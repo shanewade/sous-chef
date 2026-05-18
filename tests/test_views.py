@@ -137,6 +137,20 @@ class TestRecipesDetail:
         assert b"Mix ingredients" in res.data
         assert b"Bake at 350" in res.data
 
+    def test_shows_unit_toggle(self, client):
+        recipe_id = create_recipe(client, ingredients_text="2 cups flour").get_json()["id"]
+        res = client.get(f"/recipes/{recipe_id}")
+        assert b'id="unit-toggle"' in res.data
+        assert b'data-system="us"' in res.data
+        assert b'data-system="metric"' in res.data
+
+    def test_unit_conversion_js_present(self, client):
+        recipe_id = create_recipe(client).get_json()["id"]
+        res = client.get(f"/recipes/{recipe_id}")
+        assert b'unitSystem' in res.data
+        assert b'localStorage' in res.data
+        assert b'data-metric' in res.data
+
     def test_shows_edit_button_linking_to_edit_page(self, client):
         recipe_id = create_recipe(client).get_json()["id"]
         res = client.get(f"/recipes/{recipe_id}")

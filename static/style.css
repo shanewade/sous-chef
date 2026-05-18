@@ -387,6 +387,50 @@ body {
     border-bottom: 1px solid #e0e0e0;
 }
 
+.section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.4rem;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.section-header h2 {
+    margin-bottom: 0;
+    padding-bottom: 0;
+    border-bottom: none;
+}
+
+/* US / Metric toggle */
+.unit-toggle {
+    display: inline-flex;
+    border: 1px solid #d0d0d0;
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.unit-btn {
+    padding: 0.2rem 0.65rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    background: #fff;
+    color: #555;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+    letter-spacing: 0.03em;
+}
+
+.unit-btn:first-child {
+    border-right: 1px solid #d0d0d0;
+}
+
+.unit-btn.active {
+    background: #3b82f6;
+    color: #fff;
+}
+
 .ingredient-list {
     padding-left: 1.25rem;
     font-size: 0.95rem;
