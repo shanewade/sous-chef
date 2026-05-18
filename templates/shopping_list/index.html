@@ -61,6 +61,76 @@
     } catch(e) {}
 }());
 
+// Apply metric unit preference to shopping list quantities
+(function () {
+    try {
+        var s = JSON.parse(localStorage.getItem('appSettings') || '{}');
+        if ((s.unitSystem || 'us') !== 'metric') return;
+
+        // US → base unit conversion factors
+        var TO_ML = { tsp: 5, tbsp: 15, cup: 240, 'fl oz': 30, stick: 113.4 };
+        var TO_G  = { oz: 28.35, lb: 453.6 };
+
+        // Unicode fraction symbols used by _fmt_qty
+        var FRACS = { '¼': 0.25, '½': 0.5, '¾': 0.75, '⅓': 1/3, '⅔': 2/3 };
+
+        function parseQty(str) {
+            str = str.trim();
+            if (!str) return null;
+            if (FRACS[str] !== undefined) return FRACS[str];
+            var parts = str.split(' ');
+            if (parts.length === 2 && FRACS[parts[1]] !== undefined) {
+                return parseFloat(parts[0]) + FRACS[parts[1]];
+            }
+            var n = parseFloat(str);
+            return isNaN(n) ? null : n;
+        }
+
+        function fmtMetric(val, isWeight) {
+            if (isWeight) {
+                if (val >= 1000) return (Math.round(val / 100) / 10) + ' kg';
+                return Math.round(val) + ' g';
+            }
+            if (val >= 1000) return (Math.round(val / 100) / 10) + ' l';
+            if (val >= 100)  return (Math.round(val / 5) * 5) + ' ml';
+            if (val >= 10)   return Math.round(val) + ' ml';
+            return (Math.round(val * 4) / 4) + ' ml';
+        }
+
+        // All US units we can convert, longest first to avoid partial matches
+        var US_UNITS = Object.keys(TO_ML).concat(Object.keys(TO_G))
+            .sort(function(a, b) { return b.length - a.length; });
+
+        document.querySelectorAll('.sl-qty').forEach(function (span) {
+            var text = span.textContent.trim();
+            if (!text) return;
+
+            var matchedUnit = null;
+            var qtyStr = text;
+
+            for (var i = 0; i < US_UNITS.length; i++) {
+                var u = US_UNITS[i];
+                var re = new RegExp('\\s+' + u.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\s*$', 'i');
+                if (re.test(text)) {
+                    matchedUnit = u;
+                    qtyStr = text.replace(re, '').trim();
+                    break;
+                }
+            }
+
+            if (!matchedUnit) return;
+            var qty = parseQty(qtyStr);
+            if (qty === null || qty <= 0) return;
+
+            var converted = TO_ML[matchedUnit] !== undefined
+                ? fmtMetric(qty * TO_ML[matchedUnit], false)
+                : fmtMetric(qty * TO_G[matchedUnit],  true);
+
+            span.textContent = converted;
+        });
+    } catch (e) {}
+}());
+
 document.querySelectorAll('.sl-checkbox').forEach(cb => {
     cb.addEventListener('change', () => {
         cb.closest('.sl-item').classList.toggle('sl-checked', cb.checked);
