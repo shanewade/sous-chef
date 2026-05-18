@@ -8,6 +8,8 @@ from extensions import db as _db
 @pytest.fixture()
 def app():
     flask_app.config["TESTING"] = True
+    flask_app.config["WTF_CSRF_ENABLED"] = False
+    flask_app.config["SECRET_KEY"] = "test-secret"
     # Flask-SQLAlchemy 3.1 blocks init_app from being called a second time, so
     # we inject a fresh engine directly into its per-app engine cache.
     # StaticPool ensures every connection in the test (fixtures + request

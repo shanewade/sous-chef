@@ -1,8 +1,9 @@
 from datetime import date, timedelta
-from flask import Blueprint, render_template, abort
+from flask import Blueprint, render_template, abort, flash, redirect, url_for, request
 from extensions import db
-from models import MealPlan, Recipe
+from models import MealPlan, Recipe, Tag
 from shopping_utils import aggregate
+from forms import RecipeForm
 
 views = Blueprint("views", __name__)
 
@@ -13,9 +14,34 @@ def recipes_index():
     return render_template("recipes/index.html", recipes=recipes)
 
 
-@views.route("/recipes/new")
+@views.route("/recipes/new", methods=["GET", "POST"])
 def recipes_new():
-    return render_template("recipes/new.html")
+    form = RecipeForm()
+    if form.validate_on_submit():
+        tag_names = [t.strip().lower() for t in (form.tags.data or "").split(",") if t.strip()]
+        recipe = Recipe(
+            title=form.title.data,
+            description=form.description.data or None,
+            cook_time_minutes=form.cook_time_minutes.data,
+            servings=form.servings.data,
+            ingredients_text=form.ingredients_text.data or None,
+            steps=form.steps.data or None,
+        )
+        tags = []
+        for name in tag_names:
+            tag = Tag.query.filter_by(name=name).first()
+            if tag is None:
+                tag = Tag(name=name)
+                db.session.add(tag)
+            tags.append(tag)
+        recipe.tags = tags
+        db.session.add(recipe)
+        db.session.commit()
+        flash("Recipe created successfully!", "success")
+        return redirect(url_for("views.recipes_detail", id=recipe.id))
+    if request.method == "POST":
+        flash("Please fix the errors below.", "error")
+    return render_template("recipes/new.html", form=form)
 
 
 @views.route("/recipes/<int:id>")

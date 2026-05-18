@@ -51,9 +51,51 @@ class TestRecipesNew:
                       b'name="ingredients_text"', b'name="steps"']:
             assert field in res.data
 
-    def test_posts_to_api_recipes(self, client):
+    def test_form_posts_to_new_route(self, client):
         res = client.get("/recipes/new")
-        assert b"/api/recipes" in res.data
+        assert b'action="/recipes/new"' in res.data
+
+    def test_valid_post_redirects_to_detail(self, client):
+        res = client.post("/recipes/new", data={"title": "New Dish"})
+        assert res.status_code == 302
+        assert "/recipes/" in res.headers["Location"]
+
+    def test_valid_post_shows_success_flash(self, client):
+        res = client.post("/recipes/new", data={"title": "New Dish"}, follow_redirects=True)
+        assert b"Recipe created successfully" in res.data
+
+    def test_valid_post_with_tags_creates_recipe(self, client):
+        client.post("/recipes/new", data={"title": "Tagged Dish", "tags": "italian,quick"})
+        res = client.get("/api/recipes").get_json()
+        assert sorted(res[0]["tags"]) == ["italian", "quick"]
+
+    def test_missing_title_re_renders_form(self, client):
+        res = client.post("/recipes/new", data={"title": ""})
+        assert res.status_code == 200
+        assert b"Title is required" in res.data
+
+    def test_missing_title_shows_error_flash(self, client):
+        res = client.post("/recipes/new", data={"title": ""})
+        assert b"Please fix the errors below" in res.data
+
+    def test_title_too_long_shows_error(self, client):
+        res = client.post("/recipes/new", data={"title": "x" * 201})
+        assert res.status_code == 200
+        assert b"200 characters" in res.data
+
+    def test_negative_cook_time_shows_error(self, client):
+        res = client.post("/recipes/new", data={"title": "Valid", "cook_time_minutes": "-5"})
+        assert res.status_code == 200
+        assert b"positive" in res.data
+
+    def test_zero_cook_time_shows_error(self, client):
+        res = client.post("/recipes/new", data={"title": "Valid", "cook_time_minutes": "0"})
+        assert res.status_code == 200
+        assert b"positive" in res.data
+
+    def test_valid_cook_time_accepted(self, client):
+        res = client.post("/recipes/new", data={"title": "Valid", "cook_time_minutes": "30"})
+        assert res.status_code == 302
 
 
 class TestRecipesDetail:
@@ -140,6 +182,20 @@ class TestRecipesEdit:
         recipe_id = create_recipe(client).get_json()["id"]
         res = client.get(f"/recipes/{recipe_id}/edit")
         assert f'href="/recipes/{recipe_id}"'.encode() in res.data
+
+
+class TestErrorPages:
+    def test_404_returns_correct_status(self, client):
+        res = client.get("/recipes/999999")
+        assert res.status_code == 404
+
+    def test_404_shows_friendly_message(self, client):
+        res = client.get("/recipes/999999")
+        assert b"Page Not Found" in res.data
+
+    def test_404_links_back_to_recipes(self, client):
+        res = client.get("/recipes/999999")
+        assert b'href="/recipes"' in res.data
 
 
 class TestMealPlanView:
