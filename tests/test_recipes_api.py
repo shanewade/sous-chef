@@ -95,6 +95,14 @@ class TestGetRecipe:
         assert res.status_code == 200
         assert res.get_json()["title"] == "Test Recipe"
 
+    def test_returns_ingredients_text_and_steps(self, client):
+        recipe_id = post_recipe(
+            client, ingredients_text="2 eggs\n1 cup milk", steps="1. Mix.\n2. Cook."
+        ).get_json()["id"]
+        body = client.get(f"/api/recipes/{recipe_id}").get_json()
+        assert body["ingredients_text"] == "2 eggs\n1 cup milk"
+        assert body["steps"] == "1. Mix.\n2. Cook."
+
     def test_missing_recipe_returns_404(self, client):
         res = client.get("/api/recipes/999")
         assert res.status_code == 404

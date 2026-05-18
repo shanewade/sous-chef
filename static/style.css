@@ -228,6 +228,18 @@ body {
 }
 
 /* Detail page */
+.detail-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 1rem;
+}
+
+.detail-header .btn {
+    margin-top: 1.75rem;
+    flex-shrink: 0;
+}
+
 .detail-meta {
     display: flex;
     gap: 0.5rem;

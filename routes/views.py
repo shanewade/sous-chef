@@ -26,6 +26,14 @@ def recipes_detail(id):
     return render_template("recipes/detail.html", recipe=recipe)
 
 
+@views.route("/recipes/<int:id>/edit")
+def recipes_edit(id):
+    recipe = db.session.get(Recipe, id)
+    if recipe is None:
+        abort(404)
+    return render_template("recipes/edit.html", recipe=recipe)
+
+
 @views.route("/meal-plan")
 def meal_plan():
     today = date.today()

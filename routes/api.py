@@ -15,6 +15,8 @@ def _recipe_dict(r):
         "description": r.description,
         "cook_time_minutes": r.cook_time_minutes,
         "servings": r.servings,
+        "ingredients_text": r.ingredients_text,
+        "steps": r.steps,
         "tags": [t.name for t in r.tags],
         "created_at": r.created_at.isoformat() if r.created_at else None,
     }

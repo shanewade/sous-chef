@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Recipe — Meal Planner{% endblock %}
+
+{% block content %}
+<a class="back-link" href="/recipes/{{ recipe.id }}">&larr; Back to Recipe</a>
+<h1 class="page-title" style="margin-top: 0.5rem">Edit Recipe</h1>
+
+<form class="recipe-form" id="recipe-form">
+    <div class="form-group">
+        <label for="title">Title <span class="required">*</span></label>
+        <input type="text" id="title" name="title" required>
+    </div>
+
+    <div class="form-group">
+        <label for="description">Description</label>
+        <input type="text" id="description" name="description">
+    </div>
+
+    <div class="form-row">
+        <div class="form-group">
+            <label for="cook_time_minutes">Cook Time (minutes)</label>
+            <input type="number" id="cook_time_minutes" name="cook_time_minutes" min="1">
+        </div>
+        <div class="form-group">
+            <label for="servings">Servings</label>
+            <input type="number" id="servings" name="servings" min="1">
+        </div>
+    </div>
+
+    <div class="form-group">
+        <label for="ingredients_text">Ingredients</label>
+        <p class="field-hint">One ingredient per line</p>
+        <textarea id="ingredients_text" name="ingredients_text" rows="6"></textarea>
+    </div>
+
+    <div class="form-group">
+        <label for="steps">Steps</label>
+        <p class="field-hint">One step per line</p>
+        <textarea id="steps" name="steps" rows="8"></textarea>
+    </div>
+
+    <div class="form-group">
+        <label>Tags</label>
+        <p class="field-hint">Press Enter or comma to add · Backspace to remove the last one</p>
+        <div class="tag-input-container" id="tag-input-container">
+            <input type="text" id="tag-raw-input" class="tag-input-raw" placeholder="e.g. italian, dinner, quick…" autocomplete="off">
+        </div>
+    </div>
+
+    <div class="form-actions">
+        <p class="form-error" id="form-error" hidden></p>
+        <a class="btn btn-secondary" href="/recipes/{{ recipe.id }}">Cancel</a>
+        <button class="btn" type="submit">Save Changes</button>
+    </div>
+</form>
+
+<script>
+(function () {
+    var recipeId = {{ recipe.id }};
+    var tags = [];
+
+    function esc(s) {
+        return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    function renderChips() {
+        var container = document.getElementById('tag-input-container');
+        var rawInput = document.getElementById('tag-raw-input');
+        container.querySelectorAll('.tag-chip').forEach(function (el) { el.remove(); });
+        tags.forEach(function (tag, i) {
+            var chip = document.createElement('span');
+            chip.className = 'tag-chip';
+            chip.innerHTML = esc(tag) + '<button type="button" class="tag-chip-remove" aria-label="Remove ' + esc(tag) + '">&times;</button>';
+            chip.querySelector('.tag-chip-remove').addEventListener('click', function () {
+                tags.splice(i, 1);
+                renderChips();
+            });
+            container.insertBefore(chip, rawInput);
+        });
+    }
+
+    function addTag(name) {
+        name = name.trim().toLowerCase().replace(/,/g, '');
+        if (name && !tags.includes(name)) {
+            tags.push(name);
+            renderChips();
+        }
+    }
+
+    function populateForm(recipe) {
+        document.getElementById('title').value = recipe.title || '';
+        document.getElementById('description').value = recipe.description || '';
+        document.getElementById('cook_time_minutes').value = recipe.cook_time_minutes || '';
+        document.getElementById('servings').value = recipe.servings || '';
+        document.getElementById('ingredients_text').value = recipe.ingredients_text || '';
+        document.getElementById('steps').value = recipe.steps || '';
+        tags = recipe.tags ? recipe.tags.slice() : [];
+        renderChips();
+    }
+
+    fetch('/api/recipes/' + recipeId)
+        .then(function (res) { return res.json(); })
+        .then(populateForm);
+
+    var rawInput = document.getElementById('tag-raw-input');
+
+    rawInput.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' || e.key === ',') {
+            e.preventDefault();
+            addTag(this.value);
+            this.value = '';
+        } else if (e.key === 'Backspace' && this.value === '' && tags.length) {
+            tags.pop();
+            renderChips();
+        }
+    });
+
+    rawInput.addEventListener('blur', function () {
+        if (this.value.trim()) {
+            addTag(this.value);
+            this.value = '';
+        }
+    });
+
+    document.getElementById('tag-input-container').addEventListener('click', function () {
+        rawInput.focus();
+    });
+
+    document.getElementById('recipe-form').addEventListener('submit', async function (e) {
+        e.preventDefault();
+        if (rawInput.value.trim()) {
+            addTag(rawInput.value);
+            rawInput.value = '';
+        }
+
+        const form = e.target;
+        const errorEl = document.getElementById('form-error');
+        errorEl.hidden = true;
+
+        const data = {
+            title: form.title.value.trim(),
+            description: form.description.value.trim() || null,
+            cook_time_minutes: form.cook_time_minutes.value ? parseInt(form.cook_time_minutes.value) : null,
+            servings: form.servings.value ? parseInt(form.servings.value) : null,
+            ingredients_text: form.ingredients_text.value.trim() || null,
+            steps: form.steps.value.trim() || null,
+            tags: tags,
+        };
+
+        const res = await fetch('/api/recipes/' + recipeId, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data),
+        });
+
+        if (res.ok) {
+            window.location.href = '/recipes/' + recipeId;
+        } else {
+            const body = await res.json().catch(function () { return {}; });
+            errorEl.textContent = body.error || 'Something went wrong. Please try again.';
+            errorEl.hidden = false;
+        }
+    });
+}());
+</script>
+{% endblock %}

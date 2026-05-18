@@ -89,6 +89,40 @@ class TestRecipesDetail:
         assert b"Mix ingredients" in res.data
         assert b"Bake at 350" in res.data
 
+    def test_shows_edit_button_linking_to_edit_page(self, client):
+        recipe_id = create_recipe(client).get_json()["id"]
+        res = client.get(f"/recipes/{recipe_id}")
+        assert f"/recipes/{recipe_id}/edit".encode() in res.data
+
+
+class TestRecipesEdit:
+    def test_returns_200_for_existing_recipe(self, client):
+        recipe_id = create_recipe(client).get_json()["id"]
+        res = client.get(f"/recipes/{recipe_id}/edit")
+        assert res.status_code == 200
+
+    def test_returns_404_for_missing_recipe(self, client):
+        res = client.get("/recipes/999/edit")
+        assert res.status_code == 404
+
+    def test_contains_form_fields(self, client):
+        recipe_id = create_recipe(client).get_json()["id"]
+        res = client.get(f"/recipes/{recipe_id}/edit")
+        for field in [b'name="title"', b'name="cook_time_minutes"', b'name="servings"',
+                      b'name="ingredients_text"', b'name="steps"']:
+            assert field in res.data
+
+    def test_submits_via_put(self, client):
+        recipe_id = create_recipe(client).get_json()["id"]
+        res = client.get(f"/recipes/{recipe_id}/edit")
+        assert b"method: 'PUT'" in res.data
+        assert f"var recipeId = {recipe_id}".encode() in res.data
+
+    def test_cancel_links_back_to_detail(self, client):
+        recipe_id = create_recipe(client).get_json()["id"]
+        res = client.get(f"/recipes/{recipe_id}/edit")
+        assert f'href="/recipes/{recipe_id}"'.encode() in res.data
+
 
 class TestMealPlanView:
     def test_returns_200(self, client):
