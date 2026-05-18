@@ -60,6 +60,18 @@ class TestParseLine:
         _, _, name = parse_line("1 cup All-Purpose Flour")
         assert name == name.lower()
 
+    def test_no_space_between_qty_and_unit(self):
+        qty, unit, name = parse_line("100g parmesan, grated")
+        assert qty == 100.0
+        assert unit == "g"
+        assert name == "parmesan, grated"
+
+    def test_no_space_qty_unit_ml(self):
+        qty, unit, name = parse_line("500ml coconut milk")
+        assert qty == 500.0
+        assert unit == "ml"
+        assert name == "coconut milk"
+
     def test_division_by_zero_qty_with_unit_returns_none_qty(self):
         qty, unit, name = parse_line("1/0 cups flour")
         assert qty is None
@@ -257,6 +269,15 @@ class TestAggregateDedup:
         # 16 oz = 1 lb
         assert chicken['unit'] == 'lb'
         assert chicken['quantity'] == '1'
+
+    def test_combines_no_space_weight_format(self):
+        r1 = self.FakeRecipe("50g parmesan, finely grated")
+        r2 = self.FakeRecipe("60g parmesan, grated")
+        result = aggregate([r1, r2])
+        parmesan_items = [i for i in result if 'parmesan' in i['ingredient']]
+        assert len(parmesan_items) == 1
+        assert parmesan_items[0]['quantity'] == '110'
+        assert parmesan_items[0]['unit'] == 'g'
 
     def test_metric_volume_stays_metric(self):
         r1 = self.FakeRecipe("200 ml milk")

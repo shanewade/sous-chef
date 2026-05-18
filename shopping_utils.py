@@ -182,7 +182,7 @@ def parse_line(line):
         # word not a unit — treat as part of the name
         return qty, None, f"{word} {rest}".lower()
 
-    # qty + name only
+    # qty + name only (space-separated, no unit)
     m = re.match(r'^(\d[\d ./]*?)\s+(.+)$', line)
     if m:
         qty_s, rest = m.group(1).strip(), m.group(2).strip()
@@ -191,6 +191,19 @@ def parse_line(line):
         except (ValueError, ZeroDivisionError):
             qty = None
         return qty, None, rest.lower()
+
+    # qty+unit with no space, e.g. "100g flour", "500ml milk", "1kg chicken"
+    m = re.match(r'^(\d[\d./]*)\s*([a-zA-Z]+)\s+(.+)$', line)
+    if m:
+        qty_s, word, rest = m.group(1), m.group(2), m.group(3).strip()
+        unit = _UNITS.get(word.lower())
+        try:
+            qty = _parse_qty(qty_s)
+        except (ValueError, ZeroDivisionError):
+            qty = None
+        if unit:
+            return qty, unit, rest.lower()
+        return qty, None, f"{word} {rest}".lower()
 
     return None, None, line.lower()
 
