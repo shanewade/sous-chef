@@ -155,7 +155,8 @@ def _expand_ingredient(qty, unit, name):
 # (category, keywords) — first match wins.
 _CATEGORIES = [
     ('Produce',          ['lettuce', 'tomato', 'onion', 'garlic', 'carrot', 'potato',
-                          'pepper', 'celery', 'broccoli', 'spinach', 'mushroom', 'lemon',
+                          'bell pepper', 'capsicum', 'jalapeño', 'jalapeno',
+                          'celery', 'broccoli', 'spinach', 'mushroom', 'lemon',
                           'lime', 'orange', 'apple', 'avocado', 'zucchini', 'cucumber',
                           'kale', 'cabbage', 'ginger', 'parsley', 'cilantro', 'basil',
                           'thyme', 'rosemary', 'scallion', 'shallot', 'leek', 'herb',
@@ -171,7 +172,8 @@ _CATEGORIES = [
                           'couscous', 'barley', 'panko', 'breadcrumb', 'cracker']),
     ('Pantry',           ['oil', 'vinegar', 'soy sauce', 'fish sauce', 'broth', 'stock',
                           'tomato', 'coconut milk', 'honey', 'maple', 'sugar', 'salt',
-                          'pepper', 'cumin', 'paprika', 'oregano', 'cinnamon', 'turmeric',
+                          'pepper', 'black pepper', 'white pepper', 'red pepper',
+                          'cumin', 'paprika', 'oregano', 'cinnamon', 'turmeric',
                           'curry', 'chili', 'cayenne', 'nutmeg', 'vanilla', 'baking',
                           'mustard', 'ketchup', 'hot sauce', 'worcestershire']),
 ]

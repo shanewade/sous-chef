@@ -112,6 +112,13 @@ class TestCategorize:
     def test_produce(self):
         assert categorize("garlic cloves") == "Produce"
         assert categorize("cherry tomatoes") == "Produce"
+        assert categorize("red bell pepper") == "Produce"
+        assert categorize("jalapeño") == "Produce"
+
+    def test_pepper_spice_is_pantry(self):
+        assert categorize("pepper") == "Pantry"
+        assert categorize("black pepper") == "Pantry"
+        assert categorize("red pepper flakes") == "Pantry"
 
     def test_dairy(self):
         assert categorize("parmesan, grated") == "Dairy & Eggs"
