@@ -10,7 +10,10 @@
 </head>
 <body>
     <nav class="navbar">
-        <a class="nav-brand" href="/"><img src="{{ url_for('static', filename='logo.png') }}" alt="Sous Chef" class="nav-logo"></a>
+        <a class="nav-brand" href="/">
+            <img src="{{ url_for('static', filename='favicon.png') }}" alt="" class="nav-logo-icon">
+            <span class="nav-brand-text">— sous chef —</span>
+        </a>
         <ul class="nav-links">
             <li><a href="/recipes">Recipes</a></li>
             <li><a href="/meal-plan">Meal Plan</a></li>
