@@ -2,6 +2,12 @@ import json
 from datetime import date, timedelta
 
 
+class TestIndex:
+    def test_returns_200(self, client):
+        res = client.get("/")
+        assert res.status_code == 200
+
+
 def create_recipe(client, **kwargs):
     data = {"title": "Test Recipe", **kwargs}
     return client.post("/api/recipes", data=json.dumps(data), content_type="application/json")
@@ -21,18 +27,17 @@ class TestRecipesIndex:
         res = client.get("/recipes")
         assert res.status_code == 200
 
-    def test_shows_recipe_titles(self, client):
-        create_recipe(client, title="Pasta Carbonara")
+    def test_has_search_input(self, client):
         res = client.get("/recipes")
-        assert b"Pasta Carbonara" in res.data
+        assert b'id="recipe-search"' in res.data
 
     def test_shows_new_recipe_button(self, client):
         res = client.get("/recipes")
         assert b"/recipes/new" in res.data
 
-    def test_shows_empty_state_when_no_recipes(self, client):
+    def test_fetches_from_api(self, client):
         res = client.get("/recipes")
-        assert b"No recipes yet" in res.data
+        assert b"/api/recipes" in res.data
 
 
 class TestRecipesNew:

@@ -1,6 +1,12 @@
 from datetime import datetime
 from extensions import db
 
+recipe_tags = db.Table(
+    "recipe_tags",
+    db.Column("recipe_id", db.Integer, db.ForeignKey("recipe.id"), primary_key=True),
+    db.Column("tag_id", db.Integer, db.ForeignKey("tag.id"), primary_key=True),
+)
+
 recipe_ingredients = db.Table(
     "recipe_ingredients",
     db.Column("recipe_id", db.Integer, db.ForeignKey("recipe.id"), primary_key=True),
@@ -16,6 +22,14 @@ class Ingredient(db.Model):
     def __repr__(self):
         return f"<Ingredient {self.name}>"
 
+class Tag(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False, unique=True)
+
+    def __repr__(self):
+        return f"<Tag {self.name}>"
+
+
 class Recipe(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(200), nullable=False)
@@ -27,6 +41,7 @@ class Recipe(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     ingredients = db.relationship("Ingredient", secondary=recipe_ingredients, backref="recipes")
+    tags = db.relationship("Tag", secondary=recipe_tags, backref="recipes")
 
     def __repr__(self):
         return f"<Recipe {self.title}>"

@@ -8,28 +8,107 @@
     <a class="btn" href="/recipes/new">New Recipe</a>
 </div>
 
-{% if recipes %}
-<div class="card-grid">
-    {% for recipe in recipes %}
-    <div class="card">
-        <div class="card-body">
-            <h2 class="card-title">{{ recipe.title }}</h2>
-            <ul class="card-meta">
-                {% if recipe.cook_time_minutes %}
-                <li>Cook time: {{ recipe.cook_time_minutes }} min</li>
-                {% endif %}
-                {% if recipe.servings %}
-                <li>Servings: {{ recipe.servings }}</li>
-                {% endif %}
-            </ul>
-        </div>
-        <div class="card-footer">
-            <a class="btn" href="/recipes/{{ recipe.id }}">View Recipe</a>
-        </div>
-    </div>
-    {% endfor %}
+<div class="search-row">
+    <input type="search" id="recipe-search" class="search-input" placeholder="Search recipes…" autocomplete="off">
+    <span id="tag-filter-label" class="tag-filter-label hidden"></span>
 </div>
-{% else %}
-<p class="empty-state">No recipes yet. Add one to get started.</p>
-{% endif %}
+
+<div id="recipe-grid" class="card-grid"></div>
+<p id="empty-state" class="empty-state hidden">No recipes found.</p>
+
+<script>
+(function () {
+    var activeTag = null;
+    var searchTimeout = null;
+
+    function esc(s) {
+        return String(s)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+
+    function renderCards(recipes) {
+        var grid = document.getElementById('recipe-grid');
+        var empty = document.getElementById('empty-state');
+        if (!recipes.length) {
+            grid.innerHTML = '';
+            empty.classList.remove('hidden');
+            return;
+        }
+        empty.classList.add('hidden');
+        grid.innerHTML = recipes.map(function (r) {
+            var meta = '';
+            if (r.cook_time_minutes) meta += '<li>Cook time: ' + esc(r.cook_time_minutes) + ' min</li>';
+            if (r.servings) meta += '<li>Servings: ' + esc(r.servings) + '</li>';
+            var tagHtml = '';
+            if (r.tags && r.tags.length) {
+                tagHtml = '<div class="tag-list">' +
+                    r.tags.map(function (t) {
+                        var active = t === activeTag ? ' active' : '';
+                        return '<button class="tag-badge' + active + '" data-tag="' + esc(t) + '">' + esc(t) + '</button>';
+                    }).join('') +
+                    '</div>';
+            }
+            return '<div class="card">' +
+                '<div class="card-body">' +
+                '<h2 class="card-title">' + esc(r.title) + '</h2>' +
+                '<ul class="card-meta">' + meta + '</ul>' +
+                tagHtml +
+                '</div>' +
+                '<div class="card-footer">' +
+                '<a class="btn" href="/recipes/' + r.id + '">View Recipe</a>' +
+                '</div>' +
+                '</div>';
+        }).join('');
+
+        grid.querySelectorAll('.tag-badge').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                filterByTag(btn.dataset.tag);
+            });
+        });
+    }
+
+    function updateTagLabel() {
+        var label = document.getElementById('tag-filter-label');
+        if (activeTag) {
+            label.textContent = activeTag + ' ×';
+            label.classList.remove('hidden');
+        } else {
+            label.classList.add('hidden');
+        }
+    }
+
+    function filterByTag(tag) {
+        activeTag = activeTag === tag ? null : tag;
+        fetchRecipes();
+    }
+
+    function fetchRecipes() {
+        var params = new URLSearchParams();
+        var search = document.getElementById('recipe-search').value.trim();
+        if (search) params.set('search', search);
+        if (activeTag) params.set('tag', activeTag);
+        fetch('/api/recipes?' + params)
+            .then(function (res) { return res.json(); })
+            .then(function (recipes) {
+                renderCards(recipes);
+                updateTagLabel();
+            });
+    }
+
+    document.getElementById('recipe-search').addEventListener('input', function () {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(fetchRecipes, 250);
+    });
+
+    document.getElementById('tag-filter-label').addEventListener('click', function () {
+        activeTag = null;
+        fetchRecipes();
+    });
+
+    fetchRecipes();
+}());
+</script>
 {% endblock %}

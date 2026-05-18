@@ -1,6 +1,6 @@
 from flask import Blueprint, jsonify, request
 from extensions import db
-from models import Recipe
+from models import Recipe, Tag
 
 api = Blueprint("api", __name__)
 
@@ -15,14 +15,39 @@ def _recipe_dict(r):
         "description": r.description,
         "cook_time_minutes": r.cook_time_minutes,
         "servings": r.servings,
+        "tags": [t.name for t in r.tags],
         "created_at": r.created_at.isoformat() if r.created_at else None,
     }
 
 
+def _resolve_tags(names):
+    """Return Tag objects for a list of tag name strings, creating missing ones."""
+    tags = []
+    for name in names:
+        name = name.strip().lower()
+        if not name:
+            continue
+        tag = Tag.query.filter_by(name=name).first()
+        if tag is None:
+            tag = Tag(name=name)
+            db.session.add(tag)
+        tags.append(tag)
+    return tags
+
+
 @api.route("/recipes", methods=["GET"])
 def get_recipes():
-    recipes = Recipe.query.all()
-    return jsonify([_recipe_dict(r) for r in recipes])
+    q = Recipe.query
+    search = request.args.get("search", "").strip()
+    tag = request.args.get("tag", "").strip()
+    if search:
+        like = f"%{search}%"
+        q = q.filter(
+            db.or_(Recipe.title.ilike(like), Recipe.description.ilike(like))
+        )
+    if tag:
+        q = q.filter(Recipe.tags.any(Tag.name == tag))
+    return jsonify([_recipe_dict(r) for r in q.all()])
 
 
 @api.route("/recipes", methods=["POST"])
@@ -40,6 +65,8 @@ def create_recipe():
         cook_time_minutes=data.get("cook_time_minutes"),
         servings=data.get("servings"),
     )
+    if "tags" in data:
+        recipe.tags = _resolve_tags(data["tags"])
     db.session.add(recipe)
     db.session.commit()
 
@@ -64,6 +91,8 @@ def update_recipe(id):
     for field in ("title", "description", "ingredients_text", "steps", "cook_time_minutes", "servings"):
         if field in data:
             setattr(recipe, field, data[field])
+    if "tags" in data:
+        recipe.tags = _resolve_tags(data["tags"])
 
     db.session.commit()
     return jsonify(_recipe_dict(recipe))

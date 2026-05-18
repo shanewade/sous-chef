@@ -60,6 +60,18 @@ class TestParseLine:
         _, _, name = parse_line("1 cup All-Purpose Flour")
         assert name == name.lower()
 
+    def test_division_by_zero_qty_with_unit_returns_none_qty(self):
+        qty, unit, name = parse_line("1/0 cups flour")
+        assert qty is None
+        assert unit == "cup"
+        assert name == "flour"
+
+    def test_division_by_zero_qty_without_unit_returns_none_qty(self):
+        qty, unit, name = parse_line("1/0 eggs")
+        assert qty is None
+        assert unit is None
+        assert name == "eggs"
+
 
 class TestFmtQty:
     def test_none_returns_empty_string(self):
