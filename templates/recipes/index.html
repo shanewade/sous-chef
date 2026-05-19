@@ -21,6 +21,42 @@
     var activeTag = null;
     var searchTimeout = null;
 
+    var EMOJI_RULES = [
+        [['pasta', 'italian', 'spaghetti', 'carbonara', 'lasagna', 'linguine', 'fettuccine', 'penne', 'risotto'], '🍝'],
+        [['taco', 'tacos', 'burrito', 'burritos', 'mexican', 'quesadilla', 'enchilada', 'fajita'], '🌮'],
+        [['pizza', 'pizzas'], '🍕'],
+        [['curry', 'thai', 'indian', 'asian', 'chinese', 'japanese', 'korean', 'ramen', 'noodles'], '🍜'],
+        [['soup', 'stew', 'chili', 'chilli', 'broth'], '🍲'],
+        [['burger', 'burgers', 'beef', 'steak'], '🍔'],
+        [['fish', 'salmon', 'seafood', 'shrimp', 'tuna', 'cod', 'halibut', 'tilapia', 'trout'], '🐟'],
+        [['chicken', 'turkey', 'poultry'], '🍗'],
+        [['cookie', 'cookies'], '🍪'],
+        [['muffin', 'muffins', 'cupcake', 'cupcakes'], '🧁'],
+        [['cake', 'cakes', 'cheesecake', 'brownie', 'brownies', 'chocolate', 'sweet', 'dessert'], '🍰'],
+        [['pie', 'pies', 'tart', 'tarts', 'pastry'], '🥧'],
+        [['bread', 'baking', 'roll', 'rolls', 'scone', 'scones', 'biscuit', 'loaf'], '🍞'],
+        [['breakfast', 'egg', 'eggs', 'pancake', 'waffle', 'omelette', 'omelet', 'frittata'], '🍳'],
+        [['sandwich', 'wrap', 'wraps', 'panini'], '🥪'],
+        [['salad', 'salads'], '🥗'],
+        [['vegan', 'vegetarian'], '🌱'],
+        [['rice', 'grain', 'grains'], '🍚'],
+    ];
+
+    function recipeEmoji(r) {
+        var haystack = (r.tags || []).concat(r.title.toLowerCase().split(/\W+/));
+        for (var i = 0; i < EMOJI_RULES.length; i++) {
+            var keywords = EMOJI_RULES[i][0], emoji = EMOJI_RULES[i][1];
+            for (var j = 0; j < keywords.length; j++) {
+                if (haystack.indexOf(keywords[j]) !== -1) return emoji;
+            }
+        }
+        return '🍽️';
+    }
+
+    function bannerClass(id) {
+        return 'banner-' + (id % 8);
+    }
+
     function esc(s) {
         return String(s)
             .replace(/&/g, '&amp;')
@@ -52,6 +88,7 @@
                     '</div>';
             }
             return '<div class="card">' +
+                '<div class="card-banner ' + bannerClass(r.id) + '">' + recipeEmoji(r) + '</div>' +
                 '<div class="card-body">' +
                 '<h2 class="card-title">' + esc(r.title) + '</h2>' +
                 '<ul class="card-meta">' + meta + '</ul>' +
