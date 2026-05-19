@@ -58,3 +58,23 @@ Tests use an in-memory SQLite database. Because Flask-SQLAlchemy 3.1 caches its 
 ## Database
 
 SQLite file lives at `instance/recipe_app.db`. Migrations are managed with Flask-Migrate (Alembic). The initial migration (`migrations/versions/f8f2af88bbdf`) creates all tables — if the DB file is missing or empty, run `flask db upgrade` to recreate them. Do not use `db.create_all()` in production; use migrations.
+
+## Workflow
+
+- Run tests before every commit (`pytest -q`)
+- Commit and push together unless the user asks for them separately
+- Close the GitHub issue when a feature ships (`gh issue close <n>`)
+- Kill port 5001 before starting the dev server: `kill $(lsof -ti:5001) 2>/dev/null`
+- Screenshots dropped in the project root can be read directly with the Read tool
+- Work directly on `main` — no feature branches
+
+## Project Context
+
+- Single-user personal app — no auth, no multi-tenancy, no need to design for scale
+- Primary device is iPad used while cooking — UI should be touch-friendly and fast to load
+- Deployment target is Fly.io with a persistent SQLite volume (Issue #20); currently runs locally on port 5001
+
+## Environment Notes
+
+- `brotli` is not installed in the venv — never add `Accept-Encoding: br` to outgoing HTTP headers (causes servers to send responses the app cannot decompress)
+- Always activate the venv before running any Python or Flask commands: `source venv/bin/activate`
