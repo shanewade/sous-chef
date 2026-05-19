@@ -4,25 +4,12 @@ with fallbacks to Open Graph meta tags.
 """
 import json
 import re
-import cloudscraper
+from curl_cffi import requests as cffi_requests
 from bs4 import BeautifulSoup
 
 
 class ScraperError(Exception):
     """Raised when a URL cannot be fetched or contains no usable recipe data."""
-
-
-_HEADERS = {
-    "User-Agent": (
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-        "AppleWebKit/537.36 (KHTML, like Gecko) "
-        "Chrome/124.0.0.0 Safari/537.36"
-    ),
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-    "Accept-Language": "en-US,en;q=0.5",
-    "Connection": "keep-alive",
-    "Upgrade-Insecure-Requests": "1",
-}
 
 # Diet schema.org values → simple tag names
 _DIET_MAP = {
@@ -191,7 +178,7 @@ def _extract_image_url(data, soup):
 
 # ── Public API ────────────────────────────────────────────────────────────────
 
-def scrape_recipe(url, timeout=8):
+def scrape_recipe(url, timeout=15):
     """
     Fetch *url* and extract recipe fields.
 
@@ -201,23 +188,18 @@ def scrape_recipe(url, timeout=8):
 
     Raises ScraperError on network failure or HTTP error.
     """
-    scraper = cloudscraper.create_scraper()
     try:
-        resp = scraper.get(url, timeout=timeout, headers=_HEADERS)
+        resp = cffi_requests.get(url, impersonate="chrome124", timeout=timeout)
         resp.raise_for_status()
-    except cloudscraper.exceptions.CloudflareChallengeError:
-        raise ScraperError("This site's bot protection could not be bypassed — try a different recipe URL.")
     except Exception as e:
-        # Map common requests exceptions to user-friendly messages
-        import requests as req
-        if isinstance(e, req.exceptions.Timeout):
+        msg = str(e)
+        if "timed out" in msg.lower() or "timeout" in msg.lower():
             raise ScraperError("The request timed out — the site may be too slow to import from.")
-        if isinstance(e, req.exceptions.ConnectionError):
+        if "connection" in msg.lower():
             raise ScraperError("Could not connect to that URL — check the address and try again.")
-        if isinstance(e, req.exceptions.HTTPError):
-            raise ScraperError(f"The site returned an error ({e.response.status_code}).")
-        if isinstance(e, req.exceptions.RequestException):
-            raise ScraperError("Could not fetch that URL.")
+        status = getattr(getattr(e, "response", None), "status_code", None)
+        if status:
+            raise ScraperError(f"The site returned an error ({status}) — it may block automated access.")
         raise ScraperError("Could not fetch that URL.")
 
     soup = BeautifulSoup(resp.text, "html.parser")

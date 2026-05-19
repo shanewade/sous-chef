@@ -7,7 +7,7 @@ import pytest
 from recipe_scraper import (
     scrape_recipe, ScraperError,
     _parse_iso_duration, _extract_instructions, _extract_tags,
-    _extract_servings, _find_recipe_jsonld, _strip_html, _extract_image_url, _HEADERS,
+    _extract_servings, _find_recipe_jsonld, _strip_html, _extract_image_url,
 )
 from bs4 import BeautifulSoup
 
@@ -230,24 +230,13 @@ def _mock_response(html, status=200):
     return mock
 
 
-def _mock_scraper(response=None, side_effect=None):
-    """Return a mock for cloudscraper.create_scraper() that returns a scraper
-    whose .get() returns *response* or raises *side_effect*."""
-    mock_session = MagicMock()
-    if side_effect is not None:
-        mock_session.get.side_effect = side_effect
-    else:
-        mock_session.get.return_value = response
-    return MagicMock(return_value=mock_session)
-
-
-_PATCH = "recipe_scraper.cloudscraper.create_scraper"
+_PATCH = "recipe_scraper.cffi_requests.get"
 
 
 class TestScrapeRecipe:
     def test_extracts_full_recipe_from_jsonld(self):
         html = _make_html(jsonld=FULL_JSONLD)
-        with patch(_PATCH, _mock_scraper(_mock_response(html))):
+        with patch(_PATCH, return_value=_mock_response(html)):
             result = scrape_recipe("http://example.com/recipe")
         assert result["title"] == "Spaghetti Carbonara"
         assert result["description"] == "A classic Roman pasta dish."
@@ -262,13 +251,13 @@ class TestScrapeRecipe:
     def test_infers_quick_tag(self):
         ld = {**FULL_JSONLD, "totalTime": "PT20M"}
         html = _make_html(jsonld=ld)
-        with patch(_PATCH, _mock_scraper(_mock_response(html))):
+        with patch(_PATCH, return_value=_mock_response(html)):
             result = scrape_recipe("http://example.com/recipe")
         assert "quick" in result["tags"]
 
     def test_falls_back_to_og_tags_when_no_jsonld(self):
         html = _make_html(og_title="No-Schema Recipe", og_description="A simple dish.")
-        with patch(_PATCH, _mock_scraper(_mock_response(html))):
+        with patch(_PATCH, return_value=_mock_response(html)):
             result = scrape_recipe("http://example.com/recipe")
         assert result["title"] == "No-Schema Recipe"
         assert result["description"] == "A simple dish."
@@ -277,48 +266,47 @@ class TestScrapeRecipe:
 
     def test_falls_back_to_page_title(self):
         html = _make_html(page_title="My Delicious Soup")
-        with patch(_PATCH, _mock_scraper(_mock_response(html))):
+        with patch(_PATCH, return_value=_mock_response(html)):
             result = scrape_recipe("http://example.com/recipe")
         assert result["title"] == "My Delicious Soup"
 
     def test_partial_jsonld_adds_warnings(self):
         ld = {"@type": "Recipe", "name": "Partial Recipe"}
         html = _make_html(jsonld=ld)
-        with patch(_PATCH, _mock_scraper(_mock_response(html))):
+        with patch(_PATCH, return_value=_mock_response(html)):
             result = scrape_recipe("http://example.com/recipe")
         assert result["title"] == "Partial Recipe"
         assert len(result["warnings"]) > 0
 
     def test_raises_scraper_error_on_connection_error(self):
-        import requests as req
-        with patch(_PATCH, _mock_scraper(side_effect=req.exceptions.ConnectionError)):
+        exc = Exception("connection refused")
+        with patch(_PATCH, side_effect=exc):
             with pytest.raises(ScraperError, match="Could not connect"):
                 scrape_recipe("http://bad-url.example.com")
 
     def test_raises_scraper_error_on_timeout(self):
-        import requests as req
-        with patch(_PATCH, _mock_scraper(side_effect=req.exceptions.Timeout)):
+        exc = Exception("request timed out")
+        with patch(_PATCH, side_effect=exc):
             with pytest.raises(ScraperError, match="timed out"):
                 scrape_recipe("http://slow.example.com")
 
     def test_raises_scraper_error_on_http_error(self):
-        import requests as req
-        mock = _mock_response("", status=404)
-        mock.raise_for_status.side_effect = req.exceptions.HTTPError(response=mock)
-        with patch(_PATCH, _mock_scraper(mock)):
+        mock_resp = _mock_response("", status=404)
+        http_exc = Exception("HTTP error")
+        http_exc.response = mock_resp
+        with patch(_PATCH, side_effect=http_exc):
             with pytest.raises(ScraperError, match="404"):
                 scrape_recipe("http://example.com/notfound")
 
-    def test_raises_scraper_error_on_generic_request_exception(self):
-        import requests as req
-        with patch(_PATCH, _mock_scraper(side_effect=req.exceptions.RequestException)):
+    def test_raises_scraper_error_on_generic_exception(self):
+        with patch(_PATCH, side_effect=Exception("something went wrong")):
             with pytest.raises(ScraperError, match="Could not fetch"):
                 scrape_recipe("http://example.com")
 
     def test_warns_when_title_missing_from_jsonld(self):
         ld = {"@type": "Recipe", "recipeIngredient": ["1 egg"]}
         html = _make_html(jsonld=ld)
-        with patch(_PATCH, _mock_scraper(_mock_response(html))):
+        with patch(_PATCH, return_value=_mock_response(html)):
             result = scrape_recipe("http://example.com/recipe")
         warnings_text = " ".join(result["warnings"])
         assert "title" in warnings_text.lower()
@@ -362,18 +350,3 @@ class TestExtractImageUrl:
         assert result == "https://example.com/jsonld.jpg"
 
 
-    def test_no_accept_encoding_in_headers(self):
-        # Manually setting Accept-Encoding causes servers to send brotli-compressed
-        # responses that requests can't decode without the brotli package installed.
-        # requests must manage this header itself.
-        assert "Accept-Encoding" not in _HEADERS
-
-    def test_accept_encoding_not_passed_to_get(self):
-        html = _make_html(jsonld=FULL_JSONLD)
-        mock_session = MagicMock()
-        mock_session.get.return_value = _mock_response(html)
-        with patch(_PATCH, MagicMock(return_value=mock_session)):
-            scrape_recipe("http://example.com/recipe")
-        _, kwargs = mock_session.get.call_args
-        passed_headers = kwargs.get("headers", {})
-        assert "Accept-Encoding" not in passed_headers
