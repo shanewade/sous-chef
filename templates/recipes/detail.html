@@ -152,6 +152,14 @@
         return qStr + ' ' + unit;
     }
 
+    function formatCount(qty) {
+        var whole = Math.floor(qty), rem = qty - whole, sym = '';
+        for (var i = 0; i < FRAC_SYMS.length; i++) {
+            if (Math.abs(rem - FRAC_SYMS[i][0]) < 0.04) { sym = FRAC_SYMS[i][1]; break; }
+        }
+        return sym ? ((whole ? whole + ' ' : '') + sym) : (Math.abs(rem) < 0.01 ? String(whole) : qty.toFixed(1));
+    }
+
     function roundNice(n) {
         if (n >= 100) return Math.round(n / 5) * 5;
         if (n >= 10)  return Math.round(n);
@@ -179,6 +187,7 @@
         'gi'
     );
     var TEMP_PAT = /(\d+)\s*°?\s*F\b/g;
+    var COUNT_PAT = /^(\d+(?:\s+\d+\/\d+|\s*\/\d+)?)(\s+)/;
 
     // Metric units that should be scaled in-system rather than converted
     var METRIC_UNITS = { g: true, kg: true, ml: true, l: true };
@@ -200,6 +209,20 @@
                 var unit = canonical(unitStr.trim());
                 return '<span class="unit-val" data-qty="' + qty + '" data-unit="' + unit + '" data-orig-unit="' + unitStr.trim() + '">' + match + '</span>';
             });
+        });
+    }
+
+    function annotateCountIngredients() {
+        document.querySelectorAll('#ingredient-list li').forEach(function(li) {
+            // Skip lines whose leading number was already wrapped by annotateIngredients
+            var first = li.firstChild;
+            if (first && first.nodeType === 1 && first.classList.contains('unit-val')) return;
+            var html = li.innerHTML;
+            var m = COUNT_PAT.exec(html);
+            if (!m) return;
+            var qty = parseQty(m[1]);
+            if (!qty) return;
+            li.innerHTML = '<span class="count-val" data-qty="' + qty + '">' + m[1] + '</span>' + html.slice(m[1].length);
         });
     }
 
@@ -231,6 +254,9 @@
             }
             span.textContent = text;
         });
+        document.querySelectorAll('.count-val').forEach(function(span) {
+            span.textContent = formatCount(parseFloat(span.dataset.qty) * scale);
+        });
         document.querySelectorAll('.temp-val').forEach(function(span) {
             span.textContent = (system === 'metric')
                 ? span.dataset.c + '°C (' + span.dataset.f + '°F)'
@@ -251,6 +277,7 @@
 
     if (unitToggle || scaleToggle) {
         annotateIngredients();
+        annotateCountIngredients();
         annotateSteps();
 
         var currentSystem = getSettings().unitSystem || 'us';
