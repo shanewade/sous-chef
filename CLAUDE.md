@@ -66,7 +66,7 @@ SQLite file lives at `instance/recipe_app.db`. Migrations are managed with Flask
 - Close the GitHub issue when a feature ships (`gh issue close <n>`)
 - Kill port 5001 before starting the dev server: `kill $(lsof -ti:5001) 2>/dev/null`
 - Screenshots dropped in the project root can be read directly with the Read tool
-- Work directly on `main` — no feature branches
+- For bug fixes we work off of main branch, for new features and improvements we create feature branches
 
 ## Project Context
 
