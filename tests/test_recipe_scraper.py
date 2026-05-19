@@ -7,7 +7,7 @@ import pytest
 from recipe_scraper import (
     scrape_recipe, ScraperError,
     _parse_iso_duration, _extract_instructions, _extract_tags,
-    _extract_servings, _find_recipe_jsonld, _strip_html,
+    _extract_servings, _find_recipe_jsonld, _strip_html, _HEADERS,
 )
 from bs4 import BeautifulSoup
 
@@ -320,3 +320,19 @@ class TestScrapeRecipe:
             result = scrape_recipe("http://example.com/recipe")
         warnings_text = " ".join(result["warnings"])
         assert "title" in warnings_text.lower()
+
+    def test_no_accept_encoding_in_headers(self):
+        # Manually setting Accept-Encoding causes servers to send brotli-compressed
+        # responses that requests can't decode without the brotli package installed.
+        # requests must manage this header itself.
+        assert "Accept-Encoding" not in _HEADERS
+
+    def test_accept_encoding_not_passed_to_get(self):
+        html = _make_html(jsonld=FULL_JSONLD)
+        mock_session = MagicMock()
+        mock_session.get.return_value = _mock_response(html)
+        with patch(_PATCH, MagicMock(return_value=mock_session)):
+            scrape_recipe("http://example.com/recipe")
+        _, kwargs = mock_session.get.call_args
+        passed_headers = kwargs.get("headers", {})
+        assert "Accept-Encoding" not in passed_headers
