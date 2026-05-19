@@ -170,6 +170,25 @@ def _meta(soup, prop):
     return (tag.get("content") or "").strip() if tag else None
 
 
+# ── Image extraction ──────────────────────────────────────────────────────────
+
+def _extract_image_url(data, soup):
+    """Return the first usable image URL from JSON-LD or og:image meta tag."""
+    img = data.get("image")
+    if img:
+        if isinstance(img, str):
+            return img or None
+        if isinstance(img, dict):
+            return img.get("url") or img.get("contentUrl") or None
+        if isinstance(img, list) and img:
+            first = img[0]
+            if isinstance(first, str):
+                return first or None
+            if isinstance(first, dict):
+                return first.get("url") or first.get("contentUrl") or None
+    return _meta(soup, "og:image") or None
+
+
 # ── Public API ────────────────────────────────────────────────────────────────
 
 def scrape_recipe(url, timeout=8):
@@ -222,6 +241,7 @@ def scrape_recipe(url, timeout=8):
 
         servings = _extract_servings(data.get("recipeYield"))
         tags = _extract_tags(data, cook_minutes)
+        image_url = _extract_image_url(data, soup)
 
         if not title:
             warnings.append("Could not find recipe title.")
@@ -246,6 +266,7 @@ def scrape_recipe(url, timeout=8):
         cook_minutes = None
         servings = None
         tags = []
+        image_url = _meta(soup, "og:image") or None
 
     return {
         "title": title,
@@ -255,5 +276,6 @@ def scrape_recipe(url, timeout=8):
         "cook_time_minutes": cook_minutes,
         "servings": servings,
         "tags": tags,
+        "image_url": image_url,
         "warnings": warnings,
     }

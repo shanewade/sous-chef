@@ -26,6 +26,7 @@ def recipes_new():
             servings=form.servings.data,
             ingredients_text=form.ingredients_text.data or None,
             steps=form.steps.data or None,
+            image_url=form.image_url.data or None,
         )
         tags = []
         for name in tag_names:

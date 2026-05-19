@@ -38,6 +38,7 @@ class Recipe(db.Model):
     steps = db.Column(db.Text)
     cook_time_minutes = db.Column(db.Integer)
     servings = db.Column(db.Integer)
+    image_url = db.Column(db.String(500))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     ingredients = db.relationship("Ingredient", secondary=recipe_ingredients, backref="recipes")

@@ -68,6 +68,15 @@ class TestCreateRecipe:
         assert body["servings"] == 2
         assert "id" in body
 
+    def test_image_url_stored_and_returned(self, client):
+        url = "https://example.com/photo.jpg"
+        body = post_recipe(client, image_url=url).get_json()
+        assert body["image_url"] == url
+
+    def test_image_url_defaults_to_none(self, client):
+        body = post_recipe(client).get_json()
+        assert body["image_url"] is None
+
     def test_missing_title_returns_400(self, client):
         res = client.post("/api/recipes", data=json.dumps({}), content_type="application/json")
         assert res.status_code == 400
@@ -130,6 +139,18 @@ class TestUpdateRecipe:
         res = client.get(f"/api/recipes/{recipe_id}").get_json()
         assert res["tags"] == ["breakfast"]
 
+    def test_updates_image_url(self, client):
+        recipe_id = post_recipe(client).get_json()["id"]
+        url = "https://example.com/new-photo.jpg"
+        body = put_recipe(client, recipe_id, image_url=url).get_json()
+        assert body["image_url"] == url
+
+    def test_clears_image_url_when_null(self, client):
+        url = "https://example.com/photo.jpg"
+        recipe_id = post_recipe(client, image_url=url).get_json()["id"]
+        body = put_recipe(client, recipe_id, image_url=None).get_json()
+        assert body["image_url"] is None
+
     def test_missing_recipe_returns_404(self, client):
         res = put_recipe(client, 999, servings=8)
         assert res.status_code == 404
@@ -183,6 +204,7 @@ class TestImportRecipeUrl:
             "cook_time_minutes": 25,
             "servings": 4,
             "tags": ["quick", "vegetarian"],
+            "image_url": "https://example.com/soup.jpg",
             "warnings": [],
         }
         with patch("routes.api.scrape_recipe", return_value=fake):
@@ -192,6 +214,7 @@ class TestImportRecipeUrl:
         assert body["title"] == "Test Soup"
         assert body["cook_time_minutes"] == 25
         assert "quick" in body["tags"]
+        assert body["image_url"] == "https://example.com/soup.jpg"
 
     def test_partial_result_with_warnings_returns_200(self, client):
         fake = {

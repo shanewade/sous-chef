@@ -19,6 +19,7 @@ def _recipe_dict(r):
         "ingredients_text": r.ingredients_text,
         "steps": r.steps,
         "tags": [t.name for t in r.tags],
+        "image_url": r.image_url,
         "created_at": r.created_at.isoformat() if r.created_at else None,
     }
 
@@ -67,6 +68,7 @@ def create_recipe():
         steps=data.get("steps"),
         cook_time_minutes=data.get("cook_time_minutes"),
         servings=data.get("servings"),
+        image_url=data.get("image_url"),
     )
     if "tags" in data:
         recipe.tags = _resolve_tags(data["tags"])
@@ -91,7 +93,7 @@ def update_recipe(id):
         return _not_found()
 
     data = request.get_json(silent=True) or {}
-    for field in ("title", "description", "ingredients_text", "steps", "cook_time_minutes", "servings"):
+    for field in ("title", "description", "ingredients_text", "steps", "cook_time_minutes", "servings", "image_url"):
         if field in data:
             setattr(recipe, field, data[field])
     if "tags" in data:

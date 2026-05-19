@@ -14,6 +14,10 @@
     </div>
 </div>
 
+{% if recipe.image_url %}
+<img class="detail-img" src="{{ recipe.image_url }}" alt="{{ recipe.title }}">
+{% endif %}
+
 <div class="detail-meta">
     {% if recipe.cook_time_minutes %}
     <span class="meta-chip">{{ recipe.cook_time_minutes }} min</span>

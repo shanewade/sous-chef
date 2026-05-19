@@ -17,6 +17,11 @@
         <input type="text" id="description" name="description">
     </div>
 
+    <div class="form-group">
+        <label for="image_url">Image URL</label>
+        <input type="url" id="image_url" name="image_url" placeholder="https://…">
+    </div>
+
     <div class="form-row">
         <div class="form-group">
             <label for="cook_time_minutes">Cook Time (minutes)</label>
@@ -95,6 +100,7 @@
         document.getElementById('servings').value = recipe.servings || '';
         document.getElementById('ingredients_text').value = recipe.ingredients_text || '';
         document.getElementById('steps').value = recipe.steps || '';
+        document.getElementById('image_url').value = recipe.image_url || '';
         tags = recipe.tags ? recipe.tags.slice() : [];
         renderChips();
     }
@@ -145,6 +151,7 @@
             servings: form.servings.value ? parseInt(form.servings.value) : null,
             ingredients_text: form.ingredients_text.value.trim() || null,
             steps: form.steps.value.trim() || null,
+            image_url: form.image_url.value.trim() || null,
             tags: tags,
         };
 

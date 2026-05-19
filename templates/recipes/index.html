@@ -88,7 +88,9 @@
                     '</div>';
             }
             return '<div class="card">' +
-                '<div class="card-banner ' + bannerClass(r.id) + '">' + recipeEmoji(r) + '</div>' +
+                (r.image_url
+                    ? '<img class="card-img" src="' + esc(r.image_url) + '" alt="' + esc(r.title) + '">'
+                    : '<div class="card-banner ' + bannerClass(r.id) + '">' + recipeEmoji(r) + '</div>') +
                 '<div class="card-body">' +
                 '<h2 class="card-title">' + esc(r.title) + '</h2>' +
                 '<ul class="card-meta">' + meta + '</ul>' +

@@ -29,3 +29,4 @@ class RecipeForm(FlaskForm):
     ingredients_text = TextAreaField("Ingredients", validators=[Optional()])
     steps = TextAreaField("Steps", validators=[Optional()])
     tags = StringField("Tags", validators=[Optional()])  # comma-separated, set by JS
+    image_url = StringField("Image URL", validators=[Optional(), Length(max=500)])

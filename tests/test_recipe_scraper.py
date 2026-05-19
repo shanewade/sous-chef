@@ -7,7 +7,7 @@ import pytest
 from recipe_scraper import (
     scrape_recipe, ScraperError,
     _parse_iso_duration, _extract_instructions, _extract_tags,
-    _extract_servings, _find_recipe_jsonld, _strip_html, _HEADERS,
+    _extract_servings, _find_recipe_jsonld, _strip_html, _extract_image_url, _HEADERS,
 )
 from bs4 import BeautifulSoup
 
@@ -36,6 +36,7 @@ FULL_JSONLD = {
     "@type": "Recipe",
     "name": "Spaghetti Carbonara",
     "description": "A classic Roman pasta dish.",
+    "image": "https://example.com/carbonara.jpg",
     "recipeIngredient": ["400g spaghetti", "200g pancetta", "4 eggs"],
     "recipeInstructions": [
         {"@type": "HowToStep", "text": "Boil pasta."},
@@ -256,6 +257,7 @@ class TestScrapeRecipe:
         assert result["servings"] == 4
         assert "italian" in result["tags"]
         assert "gluten-free" in result["tags"]
+        assert result["image_url"] == "https://example.com/carbonara.jpg"
 
     def test_infers_quick_tag(self):
         ld = {**FULL_JSONLD, "totalTime": "PT20M"}
@@ -320,6 +322,45 @@ class TestScrapeRecipe:
             result = scrape_recipe("http://example.com/recipe")
         warnings_text = " ".join(result["warnings"])
         assert "title" in warnings_text.lower()
+
+# ── _extract_image_url ────────────────────────────────────────────────────────
+
+class TestExtractImageUrl:
+    def _soup(self, og_image=None):
+        meta = f'<meta property="og:image" content="{og_image}">' if og_image else ''
+        html = f'<html><head>{meta}</head><body></body></html>'
+        return BeautifulSoup(html, 'html.parser')
+
+    def test_string_image_field(self):
+        soup = self._soup()
+        assert _extract_image_url({"image": "https://example.com/img.jpg"}, soup) == "https://example.com/img.jpg"
+
+    def test_dict_image_field_with_url_key(self):
+        soup = self._soup()
+        assert _extract_image_url({"image": {"url": "https://example.com/img.jpg"}}, soup) == "https://example.com/img.jpg"
+
+    def test_list_image_field_takes_first(self):
+        soup = self._soup()
+        assert _extract_image_url({"image": ["https://a.com/1.jpg", "https://a.com/2.jpg"]}, soup) == "https://a.com/1.jpg"
+
+    def test_list_of_dicts_takes_first_url(self):
+        soup = self._soup()
+        data = {"image": [{"url": "https://example.com/img.jpg"}]}
+        assert _extract_image_url(data, soup) == "https://example.com/img.jpg"
+
+    def test_falls_back_to_og_image(self):
+        soup = self._soup(og_image="https://example.com/og.jpg")
+        assert _extract_image_url({}, soup) == "https://example.com/og.jpg"
+
+    def test_returns_none_when_no_image(self):
+        soup = self._soup()
+        assert _extract_image_url({}, soup) is None
+
+    def test_jsonld_takes_priority_over_og(self):
+        soup = self._soup(og_image="https://example.com/og.jpg")
+        result = _extract_image_url({"image": "https://example.com/jsonld.jpg"}, soup)
+        assert result == "https://example.com/jsonld.jpg"
+
 
     def test_no_accept_encoding_in_headers(self):
         # Manually setting Accept-Encoding causes servers to send brotli-compressed

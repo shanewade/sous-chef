@@ -29,6 +29,11 @@
         <input type="text" id="description" name="description" value="{{ form.description.data or '' }}">
     </div>
 
+    <div class="form-group">
+        <label for="image_url">Image URL</label>
+        <input type="url" id="image_url" name="image_url" value="{{ form.image_url.data or '' }}" placeholder="https://…">
+    </div>
+
     <div class="form-row">
         <div class="form-group">
             <label for="cook_time_minutes">Cook Time (minutes)</label>
@@ -185,6 +190,7 @@
             if (d.ingredients_text) document.getElementById('ingredients_text').value = d.ingredients_text;
             if (d.steps)            document.getElementById('steps').value = d.steps;
             if (d.tags && d.tags.length) setTags(d.tags);
+            if (d.image_url) document.getElementById('image_url').value = d.image_url;
 
             var domain = '';
             try { domain = new URL(url).hostname.replace(/^www\./, ''); } catch (e) {}
