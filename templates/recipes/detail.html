@@ -135,8 +135,12 @@
 
     function canonical(u) { return ALIASES[u.toLowerCase()] || u.toLowerCase(); }
 
+    var UNICODE_FRACS = {'½':'1/2','¼':'1/4','¾':'3/4','⅓':'1/3','⅔':'2/3','⅛':'1/8','⅜':'3/8','⅝':'5/8','⅞':'7/8'};
+
     function parseQty(s) {
         s = s.trim();
+        s = s.replace(/(\d)([½¼¾⅓⅔⅛⅜⅝⅞])/g, function(_, d, f) { return d + ' ' + UNICODE_FRACS[f]; });
+        s = s.replace(/[½¼¾⅓⅔⅛⅜⅝⅞]/g, function(c) { return UNICODE_FRACS[c]; });
         var m = s.match(/^(\d+)\s+and\s+(\d+)\/(\d+)$/);
         if (m) return +m[1] + +m[2] / +m[3];
         m = s.match(/^(\d+)\s+(\d+)\/(\d+)$/);
@@ -182,16 +186,18 @@
         return null;
     }
 
-    // Matches space-separated units — US and metric
+    // Matches space-separated units — US and metric, with optional surrounding parens
     var UNIT_PAT = new RegExp(
-        '(\\d+(?:\\s+and\\s+\\d+\\/\\d+|\\s+\\d+\\/\\d+|\\/\\d+|\\.\\d+)?)' +
+        '(\\(*)' +
+        '(\\d+[½¼¾⅓⅔⅛⅜⅝⅞]|\\d+(?:\\s+and\\s+\\d+\\/\\d+|\\s+\\d+\\/\\d+|\\/\\d+|\\.\\d+)?|[½¼¾⅓⅔⅛⅜⅝⅞])' +
         '\\s+' +
         '(fl\\.?\\s*oz|teaspoons?|tablespoons?|tsps?|tbsps?|cups?|ounces?|pounds?|lbs?|sticks?|oz|lb|kg|ml|l|g)' +
+        '(\\)*)' +
         '(?=[\\s,.]|$)',
         'gi'
     );
     var TEMP_PAT = /(\d+)\s*°?\s*F\b/g;
-    var COUNT_PAT = /^(\d+(?:\s+\d+\/\d+|\s*\/\d+)?)(\s+)/;
+    var COUNT_PAT = /^(\d+[½¼¾⅓⅔⅛⅜⅝⅞]|\d+(?:\s+\d+\/\d+|\s*\/\d+)?|[½¼¾⅓⅔⅛⅜⅝⅞])(\s+)/;
 
     // Metric units that should be scaled in-system rather than converted
     var METRIC_UNITS = { g: true, kg: true, ml: true, l: true };
@@ -208,10 +214,11 @@
     function annotateIngredients() {
         document.querySelectorAll('#ingredient-list li').forEach(function(li) {
             var text = li.textContent.replace(/(\d)(g|kg|ml|l)\b/gi, '$1 $2');
-            li.innerHTML = text.replace(UNIT_PAT, function(match, qtyStr, unitStr) {
+            li.innerHTML = text.replace(UNIT_PAT, function(match, openParens, qtyStr, unitStr, closeParens) {
                 var qty = parseQty(qtyStr);
                 var unit = canonical(unitStr.trim());
-                return '<span class="unit-val" data-qty="' + qty + '" data-unit="' + unit + '" data-orig-unit="' + unitStr.trim() + '">' + match + '</span>';
+                var inner = match.slice(openParens.length, match.length - closeParens.length);
+                return openParens + '<span class="unit-val" data-qty="' + qty + '" data-unit="' + unit + '" data-orig-unit="' + unitStr.trim() + '">' + inner + '</span>' + closeParens;
             });
         });
     }
